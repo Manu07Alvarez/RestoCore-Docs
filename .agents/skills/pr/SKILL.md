@@ -40,6 +40,14 @@ El agente redactará la descripción del PR en Markdown con el siguiente formato
 
 ---
 
-## 🚫 Restricciones Inviolables de Operación
+## Publicación de Ramas y Creación Automatizada de PRs
+
+Una vez creadas las ramas aisladas y confirmados los mensajes de commit:
+1. **Envío Remoto:** El agente ejecutará automáticamente `git push -u origin <nombre-de-la-rama>` para publicar cada rama en GitHub.
+2. **Generación del PR:** El agente procederá a crear el Pull Request en GitHub mediante `gh pr create` o proporcionará los enlaces directos de creación junto con la plantilla estructurada de la descripción.
+
+---
+
+## Restricciones Inviolables de Operación
 * Queda prohibido realizar fusiones (*merges*) automáticas a la rama principal (`main`) sin revisión humana.
 * El desglose de tareas debe derivarse estrictamente de las especificaciones validadas.
