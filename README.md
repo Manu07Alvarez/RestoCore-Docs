@@ -55,7 +55,8 @@ RestoCore-Docs/
 ├── SKILLS.md                # Guía de arquitectura de habilidades e integración Antigravity
 ├── README.md                # Índice general y arquitectura del sistema
 ├── docs/                    # Documentos PRD, Runbooks y Elicitaciones EARS
-│   └── adr/                 # Architectural Decision Records (MADR)
+│   ├── adr/                 # Architectural Decision Records (MADR)
+│   └── domain-glossary.md   # Glosario de Lenguaje Ubicuo (DDD)
 ├── specs/                   # Contratos de API REST y Políticas Rego
 └── diagrams/                # Diagramas C4 y de secuencia en Mermaid.js
 ```
