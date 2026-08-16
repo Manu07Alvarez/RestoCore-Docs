@@ -29,14 +29,17 @@ El agente asistirá al usuario para estructurar una integración limpia en Git:
 
 ---
 
-## 🏗️ Estructura del Pull Request de Especificaciones
+## Estructura Obligatoria del Pull Request (Centro de Discusión)
 
-El agente redactará la descripción del PR en Markdown con el siguiente formato:
+Cada descripción de Pull Request generada por el agente debe funcionar como un **Centro de Discusión** exhaustivo para evaluar su aceptación o rechazo técnico. La descripción en Markdown responderá estrictamente al siguiente esquema sobrio y formal (sin emojis):
 
-1. **Resumen del Cambio:** Descripción técnica clara del problema y las especificaciones que se integran.
-2. **Tipo de Cambio:** Clasificación (*ADR, PRD, EARS, OpenAPI*).
-3. **Matriz de Alineación con Restricciones (AGENTS.md):** Verificación de cumplimiento de REST API, latencia < 2s LCP, PostgreSQL JSONB y SeaweedFS.
-4. **Tareas de Desarrollo Desbloqueadas:** Desglose atómico de las tareas que el desarrollador Frontend y Backend implementarán de forma paralela en sus respectivos repositorios.
+1. **Contexto de Negocio y Planteamiento del Problema:** Explicación técnica profunda del problema o requerimiento que motiva el cambio, antecedentes e impacto en la arquitectura.
+2. **Descripción Detallada de la Propuesta:** Detalle de los archivos integrados o modificados, especificando el comportamiento esperado.
+3. **Matriz de Alineación con Inviolables de Arquitectura (AGENTS.md):** Tabla de verificación de cumplimiento de REST API (OpenAPI 3.1), latencia < 2s LCP, PostgreSQL con JSONB e índices GIN, y carga asíncrona de imágenes en SeaweedFS.
+4. **Alternativas Evaluadas y Análisis de Impacto (Pros & Cons):** Comparativa objetiva de opciones consideradas, ventajas, desventajas y deuda técnica asumida.
+5. **Puntos Críticos de Discusión para Revisión (Aceptación o Rechazo):** Lista de preguntas clave, riesgos o aspectos críticos que el revisor humano debe evaluar para decidir la aprobación o descarte del PR.
+6. **Desglose de Tareas Atómicas Desbloqueadas (Desarrollo en Paralelo):** Segmentación independiente de tareas para Frontend (`resto-core-front`) y Backend (`resto-core-back`).
+7. **Criterios de Verificación (EARS / Gherkin):** Reglas formales en sintaxis EARS o escenarios *Given-When-Then* para validar la entrega.
 
 ---
 
@@ -44,7 +47,7 @@ El agente redactará la descripción del PR en Markdown con el siguiente formato
 
 Una vez creadas las ramas aisladas y confirmados los mensajes de commit:
 1. **Envío Remoto:** El agente ejecutará automáticamente `git push -u origin <nombre-de-la-rama>` para publicar cada rama en GitHub.
-2. **Generación del PR:** El agente procederá a crear el Pull Request en GitHub mediante `gh pr create` o proporcionará los enlaces directos de creación junto con la plantilla estructurada de la descripción.
+2. **Generación del PR:** El agente procederá a crear o actualizar el Pull Request en GitHub mediante `gh pr create` / `gh pr edit` pasando la descripción exhaustiva estructurada como Centro de Discusión en el cuerpo del PR.
 
 ---
 
