@@ -19,17 +19,17 @@ Cualquier especificación, diseño o contrato documentado en este repositorio de
 
 ## Estándares de Documentación
 
-De acuerdo con las **[Directrices de Operación (AGENTS.md)](./AGENTS.md)**, el **[Manual de Playbook (.agents/knowledge/)](./.agents/knowledge/)** y la **[Guía de Habilidades (SKILLS.md)](./SKILLS.md)**, la documentación en este repositorio sigue la arquitectura de **Revelación Progresiva** de Google Antigravity, exponiendo los siguientes comandos slash en `.agents/skills/`:
+De acuerdo con las **[Directrices de Operación (AGENTS.md)](./AGENTS.md)**, el **[Flujo de Trabajo Homologado SDD (docs/sdd-workflow.md)](./docs/sdd-workflow.md)**, el **[Manual de Playbook (.agents/knowledge/)](./.agents/knowledge/)** y la **[Guía de Habilidades (SKILLS.md)](./SKILLS.md)**, la documentación en este repositorio sigue la arquitectura de **Revelación Progresiva** de Google Antigravity, exponiendo los siguientes comandos slash en `.agents/skills/`:
 
+* **`/domain` - Lenguaje Ubicuo (DDD):** Glosario formal de dominio vinculado a esquemas (`docs/domain-glossary.md`).
 * **`/adr` - Registro de Decisiones de Arquitectura:** Integración con `dotnet-adr` en formato MADR (`docs/adr/`).
 * **`/prd` - PRDs Evolutivos:** Documentos de Requisitos de Producto bajo las 6 dimensiones de SDD + Gherkin (`docs/`).
 * **`/ears` - Sintaxis EARS:** Elicitación formal de requerimientos en los 5 patrones EARS (Alistair Mavin).
-* **`/api` - OpenAPI 3.1 & Observabilidad:** Diseño API-First con esquemas REST y OpenTelemetry en `specs/openapi.yaml`.
-* **`/pr` - Spec Gate & Integración Git:** Empaquetado inteligente y validación de Pull Requests.
 * **`/c4` - Diagramado C4:** Modelado de Contexto y Contenedores en código Mermaid.js (`diagrams/`).
-* **`/runbook` - Runbooks Ejecutables:** Guías operacionales e interactivas con Runme.dev (`docs/runbooks/`).
+* **`/api` - OpenAPI 3.1 & Observabilidad:** Diseño API-First con esquemas REST y OpenTelemetry en `specs/openapi.yaml`.
 * **`/sec` - Security-as-Code:** Políticas de autorización declarativa OPA / Rego (`specs/policies/`).
-* **`/domain` - Lenguaje Ubicuo (DDD):** Glosario formal de dominio vinculado a esquemas (`docs/domain-glossary.md`).
+* **`/runbook` - Runbooks Ejecutables:** Guías operacionales e interactivas con Runme.dev (`docs/runbooks/`).
+* **`/pr` - Spec Gate & Integración Git:** Empaquetado inteligente y validación de Pull Requests (Centro de Discusión).
 
 ---
 
@@ -55,7 +55,9 @@ RestoCore-Docs/
 ├── SKILLS.md                # Guía de arquitectura de habilidades e integración Antigravity
 ├── README.md                # Índice general y arquitectura del sistema
 ├── docs/                    # Documentos PRD, Runbooks y Elicitaciones EARS
-│   └── adr/                 # Architectural Decision Records (MADR)
+│   ├── adr/                 # Architectural Decision Records (MADR)
+│   ├── domain-glossary.md   # Glosario de Lenguaje Ubicuo (DDD)
+│   └── sdd-workflow.md      # Flujo de Trabajo Homologado SDD (7 Fases)
 ├── specs/                   # Contratos de API REST y Políticas Rego
 └── diagrams/                # Diagramas C4 y de secuencia en Mermaid.js
 ```
