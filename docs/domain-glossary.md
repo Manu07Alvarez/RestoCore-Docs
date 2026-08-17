@@ -101,3 +101,27 @@ Un **Modificador** representa una opción de personalización adicional u obliga
 ### Mapeo Técnico
 * **Contrato OpenAPI 3.1:** Esquema `ModifierGroupSchema` con tipo flexible (`type: object`).
 * **Persistencia PostgreSQL:** Objeto flexible `modifiers` en la estructura `JSONB` de la tabla `menus`.
+
+---
+
+## 6. Entidad de Dominio: Mesa / QR Table (Ubicación en Salón)
+
+### Definición de Negocio
+Una **Mesa / QR Table** representa una ubicación física o área de atención en el establecimiento gastronómico de un Tenant. Cada mesa posee un código QR físico asignado que permite al cliente acceder directamente al menú digital identificando automáticamente el punto de atención sin necesidad de autenticación previa.
+
+### Atributos Clave del Negocio
+* **Número / Etiqueta de Mesa (`table_number` / `label`):** Identificador físico visible en el restaurante (ejemplo: "Mesa 04", "Barra 02", "Terraza 12").
+* **Token Único de Acceso (`table_token`):** Hash o token alfanumérico inmutable embebido en el código QR para validar la autenticidad de la ubicación sin riesgo de adulteración en el navegador.
+* **Sector / Zona (`zone_sector`):** Agrupación espacial del local (ejemplo: "Salón Principal", "Patio", "Barra").
+* **Estado Operativo (`status`):** Condición de la mesa en el sistema (`active`, `disabled`, `maintenance`).
+* **URL de Enlace QR (`qr_payload_url`):** Enlace completo codificado en la etiqueta QR (ejemplo: `https://restocore.app/don-pepe?table=tbl_9x8f7a`).
+
+### Reglas de Negocio y Validación (Sintaxis EARS)
+* **Ubiquitous:** El sistema DEBERÁ vincular de manera unívoca cada `table_token` a un único Tenant activo en la plataforma.
+* **Event-Driven:** CUANDO un cliente escanee el código QR de una mesa activa (`status == "active"`), el sistema DEBERÁ renderizar la Carta QR adjuntando el contexto de la mesa sin requerir autenticación.
+* **Optional Features:** DONDE la mesa tenga asignado un sector (`zone_sector`), el sistema DEBERÁ incluir la denominación del sector en el contexto de la sesión de lectura.
+* **Unwanted Behavior:** SI un cliente escanee el QR de una mesa en estado inhabilitado (`status == "disabled"`), ENTONCES el sistema DEBERÁ desplegar la carta digital en modo solo lectura emitiendo una advertencia de mesa no disponible para atención.
+
+### Mapeo Técnico
+* **Contrato OpenAPI 3.1:** Esquema `TableSchema` en `specs/openapi.yaml` y parámetro de consulta opcional `table_token` en `GET /api/v1/tenants/{tenant_slug}/menu?table_token={token}`.
+* **Persistencia PostgreSQL:** Tabla `tables` (`id UUID PRIMARY KEY`, `tenant_id UUID REFERENCES tenants(id)`, `table_number VARCHAR`, `table_token VARCHAR UNIQUE`, `zone_sector VARCHAR`, `status VARCHAR`).
