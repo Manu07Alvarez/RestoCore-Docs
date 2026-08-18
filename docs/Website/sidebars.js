@@ -10,7 +10,8 @@ const sidebars = {
       items: [
         'clientes/vision-y-alcance',
         'clientes/prd-menu-qr',
-        'clientes/prd-panel-admin'
+        'clientes/prd-panel-admin',
+        'clientes/prd-comanda-cocina'
       ]
     }
   ],
