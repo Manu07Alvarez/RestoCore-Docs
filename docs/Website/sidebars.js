@@ -33,7 +33,8 @@ const sidebars = {
             'developers/adr/0003-migracion-postgresql',
             'developers/adr/0004-carga-asincrona-de-imagenes-seaweedfs',
             'developers/adr/0005-presupuesto-latencia-y-cache-cdn',
-            'developers/adr/0006-seguridad-declarativa-opa-rego'
+            'developers/adr/0006-seguridad-declarativa-opa-rego',
+            'developers/adr/0007-procesamiento-pedidos-cola-fifo-websockets'
           ]
         }
       ]
