@@ -97,6 +97,6 @@ sequenceDiagram
 ---
 
 ## Enlaces y Referencias
-* Directrices de Gobernanza: [AGENTS.md](../../AGENTS.md) (Inviolable #2 - Presupuesto de Latencia < 2s LCP).
-* Especificación de API: [specs/openapi.yaml](../../specs/openapi.yaml).
+* Directrices de Gobernanza: [Guía de Onboarding](../guia-onboarding.md).
+* Especificación de API: [Especificación de API REST](../contrato-api.md).
 * Registro de Persistencia: [ADR-0003](./0003-migracion-postgresql.md).

@@ -124,6 +124,5 @@ allow {
 ---
 
 ## Enlaces y Referencias
-* Habilidad de Agente: [Skill /sec](../../.agents/skills/sec/SKILL.md).
-* Especificaciones de Seguridad: `specs/policies/`.
+* Especificaciones de Seguridad: Politicas OPA Rego en `specs/policies/`.
 * Registro SDD: [ADR-0001](./0001-adopcion-de-spec-driven-development-sdd-y-docs-as-code.md).

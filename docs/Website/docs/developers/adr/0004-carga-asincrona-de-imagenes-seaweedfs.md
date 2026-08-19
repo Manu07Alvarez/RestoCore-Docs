@@ -97,6 +97,6 @@ sequenceDiagram
 ---
 
 ## Enlaces y Referencias
-* Directrices de Gobernanza: [AGENTS.md](../../AGENTS.md) (Inviolable #4 - SeaweedFS).
+* Directrices de Gobernanza: [Guía de Onboarding](../guia-onboarding.md).
 * Registro SDD: [ADR-0001](./0001-adopcion-sdd.md).
-* Contratos API: [specs/openapi.yaml](../../specs/openapi.yaml).
+* Contratos API: [Especificación de API REST](../contrato-api.md).

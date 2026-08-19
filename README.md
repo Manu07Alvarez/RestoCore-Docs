@@ -17,19 +17,17 @@ Cualquier especificación, diseño o contrato documentado en este repositorio de
 
 ---
 
-## Estándares de Documentación
+## Estándares de Documentación y Flujo SDD
 
-De acuerdo con las **[Directrices de Operación (AGENTS.md)](./AGENTS.md)**, el **[Flujo de Trabajo Homologado SDD (docs/sdd-workflow.md)](./docs/sdd-workflow.md)**, el **[Manual de Playbook (.agents/knowledge/)](./.agents/knowledge/)** y la **[Guía de Habilidades (SKILLS.md)](./SKILLS.md)**, la documentación en este repositorio sigue la arquitectura de **Revelación Progresiva** de Google Antigravity, exponiendo los siguientes comandos slash en `.agents/skills/`:
+De acuerdo con el **[Flujo de Trabajo Homologado SDD (docs/sdd-workflow.md)](./docs/sdd-workflow.md)** y las **[Directrices de Operación (AGENTS.md)](./AGENTS.md)**, la documentación del proyecto sigue las 7 fases del desarrollo guiado por especificaciones:
 
-* **`/domain` - Lenguaje Ubicuo (DDD):** Glosario formal de dominio vinculado a esquemas (`docs/domain-glossary.md`).
-* **`/adr` - Registro de Decisiones de Arquitectura:** Integración con `dotnet-adr` en formato MADR (`docs/adr/`).
-* **`/prd` - PRDs Evolutivos:** Documentos de Requisitos de Producto bajo las 6 dimensiones de SDD + Gherkin (`docs/`).
-* **`/ears` - Sintaxis EARS:** Elicitación formal de requerimientos en los 5 patrones EARS (Alistair Mavin).
-* **`/c4` - Diagramado C4:** Modelado de Contexto y Contenedores en código Mermaid.js (`diagrams/`).
-* **`/api` - OpenAPI 3.1 & Observabilidad:** Diseño API-First con esquemas REST y OpenTelemetry en `specs/openapi.yaml`.
-* **`/sec` - Security-as-Code:** Políticas de autorización declarativa OPA / Rego (`specs/policies/`).
-* **`/runbook` - Runbooks Ejecutables:** Guías operacionales e interactivas con Runme.dev (`docs/runbooks/`).
-* **`/pr` - Spec Gate & Integración Git:** Empaquetado inteligente y validación de Pull Requests (Centro de Discusión).
+* **Fase 1: Glosario de Lenguaje Ubicuo (DDD):** Términos formales del dominio gastronómico (`docs/domain-glossary.md`).
+* **Fase 2: Registros de Decisiones de Arquitectura (ADR):** Formato MADR para justificativo técnico de infraestructura (`docs/adr/`).
+* **Fase 3: Requisitos de Producto (PRD + EARS):** Requerimientos evolutivos en 6 dimensiones y cláusulas EARS con Gherkin (`docs/`).
+* **Fase 4: Modelado de Arquitectura C4:** Representación visual de Contexto y Contenedores en código Mermaid.js (`diagrams/`).
+* **Fase 5: Contratos OpenAPI 3.1 & Seguridad OPA:** Especificación API REST y políticas declarativas Rego (`specs/`).
+* **Fase 6: Runbooks Operacionales:** Guías ejecutables con Runme.dev (`docs/runbooks/`).
+* **Fase 7: Puerta de Calidad Spec Gate:** Empaquetado e integración de Pull Requests como Centro de Discusión en GitHub.
 
 ---
 
