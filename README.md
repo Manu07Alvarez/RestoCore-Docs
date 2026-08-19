@@ -57,6 +57,7 @@ RestoCore-Docs/
 ├── docs/                    # Documentos PRD, Runbooks y Elicitaciones EARS
 │   ├── adr/                 # Architectural Decision Records (MADR)
 │   ├── domain-glossary.md   # Glosario de Lenguaje Ubicuo (DDD)
+│   ├── prd-admin-crud.md    # PRD Panel de Administración CRUD de Restaurantes
 │   └── sdd-workflow.md      # Flujo de Trabajo Homologado SDD (7 Fases)
 ├── specs/                   # Contratos de API REST y Políticas Rego
 └── diagrams/                # Diagramas C4 y de secuencia en Mermaid.js
