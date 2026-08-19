@@ -29,7 +29,7 @@ Procesar las comandas de forma síncrona o desordenada directamente contra la ba
 ## Opciones Consideradas
 
 ### Opción 1: Arquitectura Basada en Eventos con Cola FIFO y WebSockets (Seleccionada)
-Implementar una cola de mensajes asíncrona con semántica estricta **FIFO** (utilizando Redis Streams o RabbitMQ FIFO queues). Al realizar un pedido desde la mesa, la API valida la solicitud y la encola inmediatamente en la cola del Tenant. Un trabajador consumidor (*worker*) procesa la cola de forma secuencial, persiste el estado en la base de datos PostgreSQL y emite el evento en tiempo real mediante una conexión **WebSocket** persistente (`ws://`) hacia el Kitchen Display System (KDS) de la cocina y el panel de mozos.
+Implementar una cola de mensajes asíncrona con semántica estricta **FIFO** (utilizando Redis Streams o RabbitMQ FIFO queues). Al realizar un pedido desde la mesa, la API valida la solicitud y la encola inmediatamente en la cola del Tenant. Un trabajador consumidor (*worker*) procesa la cola de forma secuencial, persiste el estado en la base de datos PostgreSQL y emite el evento en tiempo real mediante una conexión **WebSocket** persistente (`wss://`) hacia el Kitchen Display System (KDS) de la cocina y el panel de mozos.
 
 * **Ventajas:**
   - Prevención garantizada de condiciones de carrera y comandas duplicadas.

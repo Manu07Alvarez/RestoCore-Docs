@@ -1,6 +1,6 @@
 # Guia de Integracion de Especificaciones y Control de Cambios en Docusaurus
 
-Este documento sirve como fuente de conocimiento autoritativa para el agente de inteligencia artificial en el repositorio de especificaciones. Su proposito es definir la arquitectura, configuracion y automatizaciones necesarias para compilar, estructurar y presentar visualmente todo el ecosistema de especificaciones (ADRs, PRDs, contratos OpenAPI, diagramas C4) junto con el historial de Pull Requests (PRs) e integraciones de Git dentro de un portal de documentacion centralizado basado en Docusaurus.
+Este documento sirve como la guía de integración oficial para el portal de documentación del proyecto RestoCore. Su propósito es definir la arquitectura, configuración y automatizaciones necesarias para compilar, estructurar y presentar visualmente todo el ecosistema de especificaciones (ADRs, PRDs, contratos OpenAPI, diagramas C4) junto con el historial de Pull Requests (PRs) e integraciones de Git dentro de un portal de documentación centralizado basado en Docusaurus.
 
 ---
 
@@ -259,11 +259,11 @@ jobs:
 
 ---
 
-## 5. Instrucciones de Comportamiento para el Agente
+## 5. Estándares y Directrices de Documentación para el Proyecto
 
-Al operar en el repositorio de especificaciones, el agente debe seguir las siguientes reglas operativas estrictas:
+Al redactar o actualizar especificaciones en el repositorio, se deben seguir las siguientes directrices operativas:
 
-1.  **Visualizacion y Control de Cambios en Tiempo Real:** Cuando el usuario solicite registrar una modificacion de especificaciones (por ejemplo, tras modificar un PRD, redactar clausulas EARS o crear un nuevo ADR), el agente debe informarle de manera proactiva que la propuesta sera accesible visualmente de forma inmediata a traves del **entorno de vista previa (Deploy Preview)** asociado al Pull Request que se abra para dicha modificacion. Debe explicarle que esto permite revisar, navegar e inspeccionar el diseño visual e interactivo de la especificacion de forma previa a la aprobacion, integrándose de forma definitiva en el portal de produccion una vez fusionado el Pull Request en la rama principal.
-2.  **Sugerencias de Redaccion Visual:** Ante la propuesta de añadir nuevos diagramas, el agente rechazara la inclusion de formatos de imagen estaticos (PNG, JPEG) y proporcionara obligatoriamente la estructura correspondiente escrita en bloques de codigo Mermaid.js compatible con Docusaurus.
-3.  **Coherencia de Referencias Cruzadas:** Al redactar un PRD o un ADR, el agente debe validar que los enlaces internos sigan la estructura de rutas relativas de Docusaurus para evitar enlaces rotos durante la compilacion.
-4.  **Uso de MDX Partiales para Evitar Duplicaciones:** El agente recomendara de manera proactiva la extraccion de definiciones complejas de negocio a archivos parciales que comiencen con un guion bajo, permitiendo que la misma definicion sea consumida sin discrepancias semanticas tanto por clientes de negocio como por ingenieros de desarrollo.
+1. **Visualización y Control de Cambios en Tiempo Real:** Al registrar modificaciones de especificaciones (PRDs, cláusulas EARS o ADRs), la propuesta es accesible visualmente a través del **entorno de vista previa (Deploy Preview)** asociado al Pull Request antes de su fusión a la rama principal.
+2. **Representación Visual en Mermaid.js:** No se deben incluir formatos de imagen binarios estáticos (PNG, JPEG). Toda representación visual debe escribirse exclusivamente en bloques de código Mermaid.js compatibles con Docusaurus.
+3. **Coherencia de Referencias Cruzadas:** Al redactar un PRD o un ADR, se debe validar que los enlaces internos sigan la estructura de rutas relativas de Docusaurus para evitar enlaces rotos durante la compilacion.
+4. **Uso de MDX Partials para Evitar Duplicaciones:** Se recomienda la extracción de definiciones complejas de negocio a archivos parciales que comiencen con un guion bajo (`_definicion.mdx`), permitiendo que la misma definición sea consumida sin discrepancias semánticas en distintas secciones.
