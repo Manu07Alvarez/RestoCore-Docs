@@ -31,7 +31,8 @@ const sidebars = {
             'developers/adr/0001-adopcion-sdd',
             'developers/adr/0002-separacion-repositorios',
             'developers/adr/0003-migracion-postgresql',
-            'developers/adr/0004-carga-asincrona-de-imagenes-seaweedfs'
+            'developers/adr/0004-carga-asincrona-de-imagenes-seaweedfs',
+            'developers/adr/0005-presupuesto-latencia-y-cache-cdn'
           ]
         }
       ]
