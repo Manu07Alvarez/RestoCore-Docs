@@ -124,5 +124,5 @@ allow {
 ---
 
 ## Enlaces y Referencias
-* Especificaciones de Seguridad: Politicas OPA Rego en `specs/policies/`.
+* Especificaciones de Seguridad: Políticas OPA Rego en `specs/policies/`.
 * Registro SDD: [ADR-0001](./0001-adopcion-de-spec-driven-development-sdd-y-docs-as-code.md).

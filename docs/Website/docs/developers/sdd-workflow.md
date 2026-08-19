@@ -121,5 +121,5 @@ Consolidación de los cambios en una propuesta de integración formal, garantiza
 *   **Validaciones Obligatorias antes de Fusionar un PR:**
     *   Verificación de no violar los pilares de arquitectura (REST API, latencia < 2s LCP, SeaweedFS, PostgreSQL JSONB).
     *   Validación de requerimientos EARS sin adjetivos ambiguos.
-    *   Aislamiento en ramas dedicated: `arch/adr-XXXX` para decisiones de arquitectura y `feature/prd-XXXX` para requerimientos funcionales.
+    *   Aislamiento en ramas dedicadas: `arch/adr-XXXX` para decisiones de arquitectura y `feature/prd-XXXX` para requerimientos funcionales.
     *   Descripción del Pull Request en formato **Centro de Discusión** estructurado en 7 secciones sin emojis.

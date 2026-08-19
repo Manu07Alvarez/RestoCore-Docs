@@ -17,7 +17,7 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 * **Encolamiento Asíncrono FIFO:** Inserción de comandas en una cola asíncrona que garantiza el procesamiento secuencial en orden estricto de llegada (`ADR-0007`).
 * **Pantalla de Cocina (Kitchen Display System - KDS):** Interfaz interactiva para el equipo de cocina que muestra las comandas activas organizadas por tiempo de espera y estado.
 * **Gestión de Estados de Comanda:** Transiciones de estado en tiempo real: `En Cola` -> `Recibido` -> `En Preparación` -> `Listo para Servir` -> `Entregado`.
-* **Notificaciones Bidireccionales en Tiempo Real:** Actualización instantánea de pantallas vía WebSockets (`ws://`) sin necesidad de refresco manual.
+* **Notificaciones Bidireccionales en Tiempo Real:** Actualización instantánea de pantallas vía WebSockets (`wss://`) sin necesidad de refresco manual.
 
 ### Funcionalidades Excluidas (Out-of-Scope)
 * **Pagos en Línea:** Procesamiento de cobros integrados con pasarelas de pago.
