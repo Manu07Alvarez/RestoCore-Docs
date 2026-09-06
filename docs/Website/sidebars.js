@@ -45,6 +45,7 @@ const sidebars = {
       label: 'Especificaciones Técnicas',
       collapsed: false,
       items: [
+        'developers/arquitectura-backend-dotnet',
         'developers/contrato-api',
         'developers/modelo-c4-sistema',
         'developers/historial-cambios'
