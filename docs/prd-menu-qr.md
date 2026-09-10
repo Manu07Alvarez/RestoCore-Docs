@@ -29,6 +29,9 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 
 ## 3. Restricciones y Asunciones
 * **Presupuesto de Latencia (< 2s LCP):** El renderizado del elemento visual principal debe completar en menos de 2.0 segundos bajo conexiones móviles 3G/4G/5G.
+* **Medición de Rendimiento con Trazas (OpenTelemetry):** El presupuesto de latencia (< 2s LCP en cliente y < 500ms p95 en servidor) se auditará exclusivamente mediante instrumentación de trazas distribuidas y `spans`, monitoreando los tiempos de respuesta en CDN, Backend y consultas a PostgreSQL.
+* **Registro de Logs Estructurados y Privacidad:** Las excepciones operativas y eventos de negocio se registrarán en formato estructurado JSON indexando atributos clave (`tenant_id`, `http.status_code`, `error.code`). Queda prohibido registrar información personal identificable (PII) o datos sensibles en los logs.
+* **Correlación Obligatoria de Telemetría:** Todo log emitido durante la atención de solicitudes de la Carta QR debe contener los identificadores `trace_id` y `span_id` para permitir el salto inmediato desde los gráficos de latencia hacia el detalle del error.
 * **Almacenamiento en Caché Perimetral (CDN):** El menú público se sirve a través de la CDN perimetral (`ADR-0005`) utilizando el `version_hash` del Tenant.
 * **Arquitectura de API:** El cliente web consume exclusivamente solicitudes `GET` a través de REST API (`ADR-0001`). Queda descartado GraphQL.
 

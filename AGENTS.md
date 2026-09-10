@@ -26,6 +26,11 @@ Al momento de crear, refactorizar o actualizar cualquier documento en este repos
     2.  **Presupuesto de Latencia:** La visualización del menú público (carta QR) del cliente debe procesar la carga en **menos de 2 segundos** desde dispositivos móviles [78, 85].
     3.  **Persistencia:** La base de datos principal es **PostgreSQL**, elegida para dar soporte a esquemas flexibles y no estructurados de platos mediante columnas `JSONB` e índices GIN [ADR-0003].
     4.  **Manejo de Imágenes con SeaweedFS:** El flujo de carga de imágenes debe ser asíncrono y desacoplado mediante URLs pre-firmadas generadas por el backend, evitando cargas directas multipart a través del servidor de API principal [87].
+    5.  **Políticas de Observabilidad y Telemetría (OpenTelemetry):**
+        *   **Separación Formal:** Los **Logs** registran eventos discretos en el tiempo (excepciones, fallos de validación, parámetros HTTP y cambios de estado) en formato estructurado JSON con atributos como `tenant_id`, `http.status_code` y `error.code`. Las **Trazas** registran el recorrido distribuido y la latencia de las solicitudes en unidades delimitadas (`spans`).
+        *   **Correlación Obligatoria:** Todo log estructurado emitido durante la atención de una solicitud debe incluir obligatoriamente los identificadores `trace_id` y `span_id`.
+        *   **Política Anti-Redundancia:** Queda prohibido emitir logs de inicio y fin de método para medir duración; la medición de tiempos de ejecución se delega exclusivamente a las trazas.
+        *   **Protección de Privacidad:** Queda estrictamente prohibido almacenar información personal identificable (PII) o credenciales en los logs.
 
 ---
 
@@ -64,3 +69,8 @@ Al redactar una nueva decisión técnica, el agente debe guiar al equipo utiliza
 ### E. Diagramas de Sistema (Modelado como Código)
 *   El agente debe estructurar y proponer representaciones visuales utilizando **Mermaid.js** incrustado directamente dentro de los archivos Markdown [64].
 *   Se dará preferencia al modelado bajo el **Modelo C4** (Contexto y Contenedores) para ilustrar las interacciones del sistema [59].
+
+### F. Especificaciones de Observabilidad y Telemetría
+Al redactar requerimientos o guías de monitoreo:
+*   **En los PRDs (Dimensión 3 - Restricciones y Asunciones):** Se debe especificar que las trazas auditan el presupuesto de latencia de la Carta QR (< 2s LCP) y que los logs estructurados capturan excepciones de negocio sin almacenar información sensible de los usuarios.
+*   **En los Runbooks Operativos (`docs/runbooks/`):** Se deben proporcionar filtros de búsqueda de logs basados en atributos estructurados (`tenant_id`, `http.status_code`, `error.code`, `trace_id`) para acelerar la resolución de incidentes (RCA).

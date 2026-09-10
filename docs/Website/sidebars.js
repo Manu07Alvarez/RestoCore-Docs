@@ -47,6 +47,7 @@ const sidebars = {
       items: [
         'developers/arquitectura-backend-dotnet',
         'developers/contrato-api',
+        'developers/observabilidad-telemetria',
         'developers/modelo-c4-sistema',
         'developers/historial-cambios'
       ]
