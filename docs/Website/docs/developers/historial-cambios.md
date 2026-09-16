@@ -4,9 +4,35 @@ Este documento refleja en orden cronológico la actividad del repositorio, los P
 
 ---
 
-## Hito: Implementación del Core Backend .NET 10 (`resto-core-back`)
+## Hito: Optimizaciones de Rendimiento y Caché Post-Commit (`resto-core-back`)
+* **Fecha:** 15 de Septiembre de 2026
+* **Resumen:** Reemplazo de MediatR por un mediador CQRS permisivo de cero dependencias (`RestoCore.Application/Common/Mediator`). Implementación de caché en memoria de alta concurrencia con llaves versionadas por tenant e invalidación atómica post-commit en `ApplicationDbContext.SaveChangesAsync()`, eliminando lecturas sucias durante actualizaciones concurrentes.
+
+---
+
+## Hito: Implementación de Observabilidad Formal OTel (Feature 004)
+* **Fecha:** 09 de Septiembre de 2026
+* **Resumen:** Alineación completa con las especificaciones de telemetría de `RestoCore-Docs`. Emisión de logs estructurados en JSON con enriquecimiento de `tenant_id`, `http.status_code`, `error.code` y correlación estricta con `trace_id` y `span_id` en `GlobalExceptionHandler`.
+
+---
+
+## Hito: Pruebas k6, Aspire Dashboard y Swagger UI (Feature 003)
+* **Fecha:** 08 de Septiembre de 2026
+* **Resumen:** Creación de suite de pruebas de estrés y rendimiento con k6 (`scripts/k6/`), integración de .NET Aspire Dashboard en `docker-compose.dev.yml` como visor OTLP en tiempo real, e integración interactiva de Swagger UI / OpenAPI 3.1 en ambiente de desarrollo.
+
+---
+
+## Hito: Entorno Docker Dev y Almacenamiento SeaweedFS (Feature 002 / PR #2)
+* **Fecha:** 07 de Septiembre de 2026
+* **Enlace de Revisión:** [Ver PR #2 en resto-core-back](https://github.com/Manu07Alvarez/resto-core-back/pull/2)
+* **Resumen:** Orquestación de dependencias locales en Docker Compose (PostgreSQL, Redis, SeaweedFS, OPA). Implementación de subida asíncrona de imágenes mediante URLs pre-firmadas (`ADR-0004`), endpoint de preparación `/ready` multipropósito y suite E2E de verificación con 30 pruebas automatizadas pasando exitosamente.
+
+---
+
+## Hito: Implementación del Core Backend .NET 10 (Feature 001 / PR #1)
 * **Fecha:** 06 de Septiembre de 2026
-* **Resumen:** Implementación completa de la Feature 001 (Multi-Tenant Digital Menu) en el repositorio `resto-core-back` con Clean Architecture, Minimal APIs, CQRS (MediatR), PostgreSQL con columnas `JSONB`, autorización declarativa OPA/Rego, generación de QR (SVG/PNG) y 18 pruebas unitarias superadas.
+* **Enlace de Revisión:** [Ver PR #1 en resto-core-back](https://github.com/Manu07Alvarez/resto-core-back/pull/1)
+* **Resumen:** Implementación completa de la Feature 001 (Multi-Tenant Digital Menu) en el repositorio `resto-core-back` con Clean Architecture, Minimal APIs, CQRS, PostgreSQL con columnas `JSONB`, autorización declarativa OPA/Rego y generación vectorial de QR (SVG/PNG).
 
 ---
 
