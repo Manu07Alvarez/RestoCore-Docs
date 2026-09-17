@@ -1,0 +1,504 @@
+openapi: 3.1.0
+info:
+  title: RestoCore REST API
+  description: >
+    Contrato oficial de API REST para la plataforma SaaS multi-tenant RestoCore.
+    Define las interfaces para la carta digital pública, gestión de catálogo administrativo,
+    capa aditiva de maquetación de lienzo (Canvas Mode), almacenamiento desacoplado con SeaweedFS
+    y telemetría distribuida.
+  version: 1.1.0
+servers:
+  - url: https://api.restocore.app
+    description: Servidor de Producción Multi-Tenant
+  - url: http://localhost:5000
+    description: Servidor de Desarrollo Local
+
+paths:
+  /api/v1/tenants/{tenant_slug}/menu:
+    get:
+      tags:
+        - Public Menu
+      summary: Obtener carta digital pública completa
+      description: >
+        Retorna la carta gastronómica estructurada de un restaurante, optimizada para
+        cumplir el presupuesto de latencia (< 2s LCP). Incluye soporte condicional de
+        caché mediante ETag y el objeto opcional `layout_config` para maquetación en modo lienzo.
+      operationId: getPublicMenu
+      parameters:
+        - name: tenant_slug
+          in: path
+          required: true
+          description: Slug unívoco identificador del restaurante
+          schema:
+            type: string
+            example: el-gato-negro
+        - name: table_token
+          in: query
+          required: false
+          description: Token criptográfico identificador de la mesa física
+          schema:
+            type: string
+            example: sec_99a8b7
+        - name: If-None-Match
+          in: header
+          required: false
+          description: Hash de versión previo del cliente para validación condicional 304
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Carta gastronómica recuperada exitosamente
+          headers:
+            ETag:
+              description: Hash criptográfico de la versión actual del catálogo
+              schema:
+                type: string
+            Cache-Control:
+              description: Directivas de almacenamiento en caché perimetral
+              schema:
+                type: string
+                example: public, max-age=60, stale-while-revalidate=300
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicMenuResponse'
+        '304':
+          description: No Modificado (El cliente posee la versión más reciente en caché)
+        '404':
+          description: Restaurante o Tenant no encontrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/menu/layout:
+    put:
+      tags:
+        - Admin - Menu & Canvas Layout
+      summary: Guardar o restablecer configuración de maquetación de lienzo (Canvas Layout)
+      description: >
+        Permite al administrador o dueño del restaurante guardar, modificar o deshabilitar
+        la disposición geométrica libre de platos sobre el lienzo visual (`layout_config`),
+        desacoplado del catálogo de datos de negocio.
+      operationId: updateMenuLayout
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LayoutConfig'
+      responses:
+        '200':
+          description: Configuración de lienzo visual actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LayoutConfig'
+        '400':
+          description: Esquema geométrico o coordenadas inválidas
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+        '404':
+          description: Tenant o menú no encontrado
+
+  /api/v1/storage/presigned-upload:
+    post:
+      tags:
+        - Storage - SeaweedFS
+      summary: Generar URL pre-firmada para subida directa de imágenes
+      description: >
+        Emite una URL temporal pre-firmada hacia SeaweedFS S3 Gateway para permitir
+        la carga asíncrona desacoplada de fotografías de platos o fondos de lienzo (ADR-0004).
+      operationId: generatePresignedUploadUrl
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - content_type
+                - file_size_bytes
+              properties:
+                filename:
+                  type: string
+                  example: fondo-lienzo-madera.jpg
+                content_type:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp]
+                  example: image/jpeg
+                file_size_bytes:
+                  type: integer
+                  maximum: 5242880
+                  description: Tamaño del archivo en bytes (Máximo 5 MB)
+                  example: 1048576
+      responses:
+        '200':
+          description: URL pre-firmada generada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload_url:
+                    type: string
+                    format: uri
+                    description: URL pre-firmada para transmisión PUT directa a SeaweedFS
+                  public_url:
+                    type: string
+                    format: uri
+                    description: URL pública final para almacenar en el recurso
+                  expires_in_seconds:
+                    type: integer
+                    example: 900
+        '400':
+          description: Tipo de archivo o tamaño no permitido
+
+  /api/v1/media/presigned-url:
+    post:
+      tags:
+        - Storage - SeaweedFS
+      summary: Alias para generación de URL pre-firmada hacia SeaweedFS
+      description: Alias de compatibilidad para solicitud de URLs pre-firmadas hacia SeaweedFS.
+      operationId: generateMediaPresignedUrl
+      security:
+        - BearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/PresignedUploadRequest'
+      responses:
+        '200':
+          description: URL generada exitosamente
+
+  /api/v1/admin/categories:
+    post:
+      tags:
+        - Admin - Catalog
+      summary: Crear nueva categoría de menú
+      operationId: createCategory
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Entradas
+                sort_order:
+                  type: integer
+                  example: 1
+                is_visible:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Categoría creada exitosamente
+
+  /api/v1/admin/items:
+    post:
+      tags:
+        - Admin - Catalog
+      summary: Crear nuevo plato gastronómico
+      operationId: createMenuItem
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - category_id
+                - name
+                - price
+              properties:
+                category_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  example: Hamburguesa Gourmet
+                description:
+                  type: string
+                price:
+                  type: number
+                  format: double
+                  example: 12500.00
+                image_url:
+                  type: string
+                  format: uri
+                dietary_tags:
+                  type: array
+                  items:
+                    type: string
+                  example: [celiac_safe, vegan]
+      responses:
+        '201':
+          description: Plato creado exitosamente
+
+  /api/v1/kitchen/items/{id}/availability:
+    patch:
+      tags:
+        - Kitchen Operations
+      summary: Alternar disponibilidad de stock de un plato desde cocina (KDS)
+      operationId: toggleItemAvailability
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - is_available
+              properties:
+                is_available:
+                  type: boolean
+      responses:
+        '200':
+          description: Disponibilidad actualizada
+
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Verificación de vitalidad del proceso (Liveness)
+      responses:
+        '200':
+          description: Proceso activo
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Verificación de preparación y dependencias externas (Readiness)
+      description: Audita la conectividad con PostgreSQL, Redis, SeaweedFS y OPA.
+      responses:
+        '200':
+          description: Todas las dependencias operativas
+        '503':
+          description: Una o más dependencias externas no disponibles
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT que contiene las reclamaciones `tenant_id`, `sub` y `roles`.
+
+  requestBodies:
+    PresignedUploadRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - filename
+              - content_type
+              - file_size_bytes
+            properties:
+              filename:
+                type: string
+              content_type:
+                type: string
+              file_size_bytes:
+                type: integer
+
+  schemas:
+    PublicMenuResponse:
+      type: object
+      required:
+        - tenant_id
+        - tenant_slug
+        - name
+        - categories
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        tenant_slug:
+          type: string
+          example: don-pepe
+        name:
+          type: string
+          example: Parrilla Don Pepe
+        branding:
+          $ref: '#/components/schemas/BrandingConfig'
+        layout_config:
+          $ref: '#/components/schemas/LayoutConfig'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryDto'
+
+    BrandingConfig:
+      type: object
+      properties:
+        logo_url:
+          type: string
+          format: uri
+        banner_url:
+          type: string
+          format: uri
+        primary_color:
+          type: string
+          example: '#FF5722'
+        accent_color:
+          type: string
+          example: '#4CAF50'
+        currency_symbol:
+          type: string
+          example: '$'
+
+    LayoutConfig:
+      type: object
+      description: Configuración aditiva de la maquetación visual en modo lienzo (Canvas Mode)
+      required:
+        - canvas_enabled
+      properties:
+        canvas_enabled:
+          type: boolean
+          description: Bandera que activa o desactiva la maquetación libre sobre lienzo
+          example: true
+        background_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL pública de la imagen de fondo alojada en SeaweedFS
+          example: https://storage.restocore.app/canvas-bg.webp
+        background_color:
+          type: string
+          nullable: true
+          description: Color de fondo CSS del lienzo (código hexadecimal o RGB)
+          example: '#1A1A1A'
+        elements:
+          type: array
+          description: Listado de elementos y platos posicionados sobre el lienzo
+          items:
+            $ref: '#/components/schemas/CanvasElement'
+
+    CanvasElement:
+      type: object
+      required:
+        - dish_id
+        - x
+        - y
+        - z_index
+        - width
+        - height
+      properties:
+        dish_id:
+          type: string
+          format: uuid
+          description: Identificador del plato del catálogo asociado al elemento
+        x:
+          type: number
+          description: Coordenada horizontal relativa o absoluta en píxeles
+          example: 120.5
+        y:
+          type: number
+          description: Coordenada vertical relativa o absoluta en píxeles
+          example: 340.0
+        z_index:
+          type: integer
+          description: Orden de profundidad de capas (z-index)
+          example: 2
+        width:
+          type: number
+          description: Ancho asignado al elemento sobre el lienzo
+          example: 280.0
+        height:
+          type: number
+          description: Altura asignada al elemento sobre el lienzo
+          example: 160.0
+
+    CategoryDto:
+      type: object
+      required:
+        - id
+        - name
+        - sort_order
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sort_order:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuItemDto'
+
+    MenuItemDto:
+      type: object
+      required:
+        - id
+        - name
+        - price
+        - is_available
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: double
+        image_url:
+          type: string
+          format: uri
+        is_available:
+          type: boolean
+        dietary_tags:
+          type: array
+          items:
+            type: string
+
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        trace_id:
+          type: string

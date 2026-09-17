@@ -32,6 +32,16 @@ test_owner_manage_menu_allowed {
     }
 }
 
+# Test 3.1: El dueño del local puede gestionar la maquetación de lienzo (Canvas)
+test_owner_manage_layout_allowed {
+    allow with input as {
+        "user": {"roles": ["owner"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "manage_layout",
+        "method": "PUT"
+    }
+}
+
 # Test 4: El dueño NO puede modificar el menú de OTRO Tenant (Multi-Tenant Isolation)
 test_owner_other_tenant_denied {
     not allow with input as {
