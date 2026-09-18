@@ -34,13 +34,15 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 ---
 
 ## 3. Restricciones y Asunciones
-* **Presupuesto de Latencia (< 2s LCP):** El renderizado del elemento visual principal debe completar en menos de 2.0 segundos bajo conexiones móviles 3G/4G/5G, independientemente de si se renderiza la plantilla estándar o el lienzo Canvas.
-* **Adaptación de Escala Responsiva:** El lienzo renderizado debe normalizar las coordenadas relativas respecto a un ancho base estándar (ej. 1080px o porcentaje relativo) garantizando legibilidad en pantallas compactas sin scroll horizontal indeseado.
-* **Desacoplamiento Estricto de Datos y Vista:** La configuración del lienzo se almacena como un objeto semiestructurado opcional (`layout_config`) desacoplado de las entidades relacionales de categorías y platos (`ADR-0005: Desacoplamiento entre Catálogo y Capa Visual Canvas`).
-* **Carga Asíncrona de Fondos e Imágenes:** Los fondos personalizados del lienzo deben emplear el flujo de carga asíncrona mediante URLs pre-firmadas hacia SeaweedFS (`ADR-0004`).
-* **Medición de Rendimiento con Trazas (OpenTelemetry):** El presupuesto de latencia se auditará exclusivamente mediante instrumentación de trazas distribuidas y `spans`, monitoreando tiempos en CDN, Backend y base de datos.
-* **Registro de Logs Estructurados y Privacidad:** Las excepciones operativas se registrarán en formato estructurado JSON indexando `tenant_id`, `http.status_code` y `error.code`. Queda prohibido registrar PII o datos sensibles.
-* **Almacenamiento en Caché Perimetral (CDN):** El menú público se sirve a través de la CDN perimetral (`ADR-0005`) utilizando el `version_hash` del Tenant. La mutación del layout invalida la caché de forma atómica.
+* **Presupuesto de Latencia y Rendimiento de Entrega (< 2s LCP):** La entrega del artefacto estático compilado desde la CDN perimetral al comensal no debe superar los 2 segundos de tiempo total de respuesta (< 2.0s LCP) bajo redes móviles 3G/4G/5G, tanto en la plantilla estándar como en la maquetación de lienzo Canvas.
+* **Restricción de Rendimiento de Compilación AOT (< 3s Pipeline):** El pipeline de compilación Ahead-Of-Time (AOT) en el backend debe completarse en menos de 3 segundos tras la confirmación de publicación (`POST /api/v1/admin/menu/publish`) desde el panel administrativo.
+* **Gestión de Activos y Variantes Adaptativas:** Todas las imágenes del lienzo (fondos y platos) deben ser procesadas y entregadas mediante variantes adaptativas (`srcset`) optimizadas para pantallas móviles en formatos modernos WebP y AVIF a partir de los originales almacenados en SeaweedFS.
+* **Almacenamiento y Caché Perimetral (CDN):** El menú público se sirve a través de la red perimetral (`ADR-0005` y `ADR-0006`) con cabeceras de caché HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`). El backend emite una orden de purgado de caché inmediata al publicar cambios.
+* **Adaptación de Escala Responsiva:** El lienzo renderizado debe normalizar las coordenadas relativas respecto a un ancho base estándar garantizando legibilidad en terminales móviles sin scroll horizontal indeseado.
+* **Desacoplamiento Estricto de Datos y Vista:** La configuración del lienzo se almacena como un objeto semiestructurado opcional (`layout_config`) en PostgreSQL `JSONB`, desacoplado de las entidades relacionales (`ADR-0005`).
+* **Carga Asíncrona de Fondos e Imágenes:** Los fondos personalizados del lienzo emplean URLs pre-firmadas hacia SeaweedFS (`ADR-0004`).
+* **Medición de Rendimiento con Trazas (OpenTelemetry):** El presupuesto de latencia se auditará exclusivamente mediante trazas distribuidas y `spans` delimitados.
+* **Registro de Logs Estructurados y Privacidad:** Las excepciones operativas se registrarán en formato JSON estructurado con `tenant_id`, `http.status_code`, `error.code`, `trace_id` y `span_id`. Prohibido almacenar PII.
 * **Arquitectura de API:** Consumo exclusivo a través de REST API (`ADR-0001`).
 
 ---
@@ -51,25 +53,28 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **ADR-0003:** Persistencia semiestructurada en PostgreSQL utilizando columnas `JSONB` e índices `GIN`.
 * **ADR-0004:** Carga asíncrona de imágenes mediante URLs pre-firmadas a SeaweedFS.
 * **ADR-0005:** Presupuesto de latencia < 2s LCP y caching perimetral en CDN.
-* **ADR-0006:** Seguridad declarativa y autorización desacoplada con OPA y Rego.
+* **ADR-0006:** Compilación Ahead-Of-Time (AOT) y Caché Perimetral en CDN para el Lienzo de Menú (Canvas).
+* **ADR-0006 (Seguridad):** Seguridad declarativa y autorización desacoplada con OPA y Rego.
 * **ADR-0007:** Procesamiento de pedidos con cola FIFO y eventos WebSockets en tiempo real.
-* **ADR-0005 (Capa Visual):** Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).
+* **ADR-0008:** Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).
 
 ---
 
 ## 5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)
 
 ### Tareas de Frontend (`resto-core-front`)
-* Construir la vista responsive de la Carta QR con soporte dual: plantilla predeterminada y vista Canvas.
+* Construir la vista responsive de la Carta QR consumiendo el artefacto plano estático precompilado por la CDN.
+* Implementar el renderizado de imágenes adaptativas mediante `srcset` y formatos WebP/AVIF servidos desde los nodos perimetrales.
 * Implementar el editor visual interactivo en el panel de administración (arrastrar elementos, redimensionar, asignar `z-index`, seleccionar fondos y previsualizar).
-* Diseñar el motor de escala responsiva del lienzo para terminales móviles garantizando relación de aspecto y legibilidad.
+* Conectar el botón de "Publicar Menú" en el CMS con el endpoint `POST /api/v1/admin/menu/publish`, mostrando el estado del trabajo de compilación AOT.
 * Implementar la lógica de fallback hacia la maquetación secuencial ante errores en la carga del `layout_config`.
 
 ### Tareas de Backend (`resto-core-back`)
-* Extender el endpoint público `GET /api/v1/tenants/{tenant_slug}/menu` para retornar el objeto opcional `layout_config`.
-* Implementar el endpoint protegido `PUT /api/v1/admin/menu/layout` para guardar, actualizar o deshabilitar la configuración del lienzo.
-* Persistir `layout_config` como columna `JSONB` en la entidad del Tenant o Menú con soporte de validación de esquema.
-* Asegurar que la actualización de la maquetación visual dispare la invalidación atómica de caché en memoria y CDN.
+* Implementar el endpoint `POST /api/v1/admin/menu/publish` para desencadenar el pipeline asíncrono de compilación AOT, compresión de activos e invalidación de caché.
+* Diseñar el pipeline de aplanamiento geométrico AOT en menos de 3 segundos SLA.
+* Implementar el servicio de optimización de imágenes (WebP/AVIF y generación de `srcset`) conectado con SeaweedFS.
+* Configurar la integración con la API de la CDN para emisión de purgado de caché selectivo por tag del tenant.
+* Configurar cabeceras de respuesta HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`) en `GET /api/v1/tenants/{tenant_slug}/menu`.
 
 ---
 

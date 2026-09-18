@@ -42,7 +42,27 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ---
 
-## 3. Matriz de Trazabilidad EARS
+---
+
+## 3. Requisitos de Compilación AOT y Caché Perimetral (CDN)
+
+### 3.1. Pipeline de Compilación y Optimización
+* **[EARS-AOT-001] (Event-Driven):**
+  CUANDO el administrador ejecute la publicación del menú, el sistema DEBERÁ compilar la estructura plana del lienzo, optimizar las imágenes de SeaweedFS y emitir la orden de purgado de caché en la CDN del restaurante.
+* **[EARS-AOT-002] (Ubiquitous):**
+  El sistema DEBERÁ procesar y generar variantes adaptativas (`srcset`) en formatos comprimidos WebP y AVIF para toda imagen vinculada al lienzo durante el ciclo de compilación AOT.
+* **[EARS-AOT-003] (State-Driven):**
+  MIENTRAS la CDN retenga la versión compilada válida del lienzo, el sistema DEBERÁ responder las solicitudes públicas del menú directamente desde el nodo perimetral sin consultar la base de datos transaccional.
+
+### 3.2. Tolerancia a Fallos y Notificación
+* **[EARS-AOT-004] (Unwanted Behavior):**
+  SI el proceso de compilación AOT del lienzo falla, ENTONCES el sistema DEBERÁ mantener activa la última versión compilada válida en la CDN y notificar la falla en el panel administrativo.
+* **[EARS-AOT-005] (Unwanted Behavior):**
+  SI la llamada a la API de purgado de la CDN experimenta un fallo o timeout, ENTONCES el sistema DEBERÁ registrar el evento estructurado de error con `error.code="CDN_PURGE_FAILURE"` y reintentar la invalidación de forma asíncrona.
+
+---
+
+## 4. Matriz de Trazabilidad EARS
 
 | Identificador | Tipo EARS | Entidad / Componente | Verificación Automatizada |
 | :--- | :--- | :--- | :--- |
@@ -50,3 +70,6 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-MENU-003** | State-Driven | Renderer de Lienzo | Test de renderizado de coordenadas x/y |
 | **EARS-MENU-006** | Unwanted Behavior | Resiliencia de Frontend | Test de fallback con JSON corrupto |
 | **EARS-CANVAS-001**| Event-Driven | Admin CMS / API Gateway | Test de endpoint `PUT /layout` |
+| **EARS-AOT-001** | Event-Driven | AOT Pipeline / Backend | Test de integración `POST /publish` y purgado |
+| **EARS-AOT-003** | State-Driven | CDN Edge / Cloudflare | Test de respuesta HTTP con cabeceras de caché |
+| **EARS-AOT-004** | Unwanted Behavior | AOT Pipeline / CMS | Test de resiliencia y retención de versión previa |

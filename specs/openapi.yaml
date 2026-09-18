@@ -57,7 +57,7 @@ paths:
               description: Directivas de almacenamiento en caché perimetral
               schema:
                 type: string
-                example: public, max-age=60, stale-while-revalidate=300
+                example: public, max-age=3600, s-maxage=86400
           content:
             application/json:
               schema:
@@ -108,6 +108,59 @@ paths:
           description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
         '404':
           description: Tenant o menú no encontrado
+
+  /api/v1/admin/menu/publish:
+    post:
+      tags:
+        - Admin - Menu & Canvas Layout
+      summary: Publicar menú y desencadenar compilación AOT e invalidación en CDN
+      description: >
+        Desencadena de forma asíncrona el pipeline de compilación Ahead-Of-Time (AOT)
+        para el menú del restaurante. Aplana la geometría del lienzo (`layout_config`),
+        procesa y optimiza las imágenes alojadas en SeaweedFS a formatos WebP y AVIF
+        generando variantes adaptativas (`srcset`), deposita el artefacto estático y emite
+        la orden de purgado de caché en la red perimetral (CDN). Retorna el estado del trabajo
+        de compilación (SLA de finalización < 3 segundos).
+      operationId: publishMenu
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuPublishRequest'
+      responses:
+        '202':
+          description: Trabajo de compilación AOT y purgado perimetral iniciado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuPublishJobResponse'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Inconsistencia o error de validación en el catálogo o lienzo previo a compilar
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Error interno durante la ejecución del pipeline AOT
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/storage/presigned-upload:
     post:
@@ -502,3 +555,51 @@ components:
           type: string
         trace_id:
           type: string
+
+    MenuPublishRequest:
+      type: object
+      properties:
+        force_recompile:
+          type: boolean
+          default: false
+          description: Forzar recompilación completa de activos multimedia aunque no hayan mutado
+
+    MenuPublishJobResponse:
+      type: object
+      required:
+        - job_id
+        - tenant_slug
+        - status
+        - triggered_at
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          example: 8c12a34b-5678-4901-abcd-ef1234567890
+        tenant_slug:
+          type: string
+          example: el-gato-negro
+        status:
+          type: string
+          enum:
+            - queued
+            - processing
+            - completed
+            - failed
+          example: processing
+        estimated_duration_seconds:
+          type: integer
+          example: 3
+          description: Presupuesto máximo SLA para la culminación del pipeline AOT
+        version_hash:
+          type: string
+          example: v20260917-a1b2c3d4
+        cdn_purge_requested:
+          type: boolean
+          example: true
+        assets_queued:
+          type: integer
+          example: 12
+        triggered_at:
+          type: string
+          format: date-time
