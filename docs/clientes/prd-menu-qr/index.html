@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Documento de Requisitos de Producto (PRD): Carta Digital y Capa Aditiva de Lienzo (Canvas Layout) | RestoCore Docs</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://Manu07Alvarez.github.io/RestoCore-Docs/img/docusaurus-social-card.jpg"><meta data-rh="true" name="twitter:image" content="https://Manu07Alvarez.github.io/RestoCore-Docs/img/docusaurus-social-card.jpg"><meta data-rh="true" property="og:url" content="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr"><meta data-rh="true" property="og:locale" content="es"><meta data-rh="true" name="docusaurus_locale" content="es"><meta data-rh="true" name="docsearch:language" content="es"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Documento de Requisitos de Producto (PRD): Carta Digital y Capa Aditiva de Lienzo (Canvas Layout) | RestoCore Docs"><meta data-rh="true" name="description" content="Este documento establece las especificaciones funcionales, límites de alcance, restricciones y criterios de aceptación para el módulo de Carta Digital del Cliente y Maquetación de Lienzo Personalizado (Canvas Mode) (Módulo 01 del Playbook de Ingeniería y Fase 3 del Flujo de Trabajo Homologado SDD)."><meta data-rh="true" property="og:description" content="Este documento establece las especificaciones funcionales, límites de alcance, restricciones y criterios de aceptación para el módulo de Carta Digital del Cliente y Maquetación de Lienzo Personalizado (Canvas Mode) (Módulo 01 del Playbook de Ingeniería y Fase 3 del Flujo de Trabajo Homologado SDD)."><link data-rh="true" rel="icon" href="/RestoCore-Docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr"><link data-rh="true" rel="alternate" href="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr" hreflang="es"><link data-rh="true" rel="alternate" href="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Documento de Requisitos de Producto (PRD): Carta Digital y Capa Aditiva de Lienzo (Canvas Layout)","item":"https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr"}]}</script><link rel="stylesheet" href="/RestoCore-Docs/assets/css/styles.cf4ee90f.css">
-<script src="/RestoCore-Docs/assets/js/runtime~main.8c3977a7.js" defer="defer"></script>
-<script src="/RestoCore-Docs/assets/js/main.c1dadb0e.js" defer="defer"></script>
+<script src="/RestoCore-Docs/assets/js/runtime~main.17584f06.js" defer="defer"></script>
+<script src="/RestoCore-Docs/assets/js/main.9cd16e01.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -45,13 +45,15 @@
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_jIvb" id="3-restricciones-y-asunciones">3. Restricciones y Asunciones<a href="#3-restricciones-y-asunciones" class="hash-link" aria-label="Enlace directo al 3. Restricciones y Asunciones" title="Enlace directo al 3. Restricciones y Asunciones" translate="no">​</a></h2>
 <ul>
-<li class=""><strong>Presupuesto de Latencia (&lt; 2s LCP):</strong> El renderizado del elemento visual principal debe completar en menos de 2.0 segundos bajo conexiones móviles 3G/4G/5G, independientemente de si se renderiza la plantilla estándar o el lienzo Canvas.</li>
-<li class=""><strong>Adaptación de Escala Responsiva:</strong> El lienzo renderizado debe normalizar las coordenadas relativas respecto a un ancho base estándar (ej. 1080px o porcentaje relativo) garantizando legibilidad en pantallas compactas sin scroll horizontal indeseado.</li>
-<li class=""><strong>Desacoplamiento Estricto de Datos y Vista:</strong> La configuración del lienzo se almacena como un objeto semiestructurado opcional (<code>layout_config</code>) desacoplado de las entidades relacionales de categorías y platos (<code>ADR-0005: Desacoplamiento entre Catálogo y Capa Visual Canvas</code>).</li>
-<li class=""><strong>Carga Asíncrona de Fondos e Imágenes:</strong> Los fondos personalizados del lienzo deben emplear el flujo de carga asíncrona mediante URLs pre-firmadas hacia SeaweedFS (<code>ADR-0004</code>).</li>
-<li class=""><strong>Medición de Rendimiento con Trazas (OpenTelemetry):</strong> El presupuesto de latencia se auditará exclusivamente mediante instrumentación de trazas distribuidas y <code>spans</code>, monitoreando tiempos en CDN, Backend y base de datos.</li>
-<li class=""><strong>Registro de Logs Estructurados y Privacidad:</strong> Las excepciones operativas se registrarán en formato estructurado JSON indexando <code>tenant_id</code>, <code>http.status_code</code> y <code>error.code</code>. Queda prohibido registrar PII o datos sensibles.</li>
-<li class=""><strong>Almacenamiento en Caché Perimetral (CDN):</strong> El menú público se sirve a través de la CDN perimetral (<code>ADR-0005</code>) utilizando el <code>version_hash</code> del Tenant. La mutación del layout invalida la caché de forma atómica.</li>
+<li class=""><strong>Presupuesto de Latencia y Rendimiento de Entrega (&lt; 2s LCP):</strong> La entrega del artefacto estático compilado desde la CDN perimetral al comensal no debe superar los 2 segundos de tiempo total de respuesta (&lt; 2.0s LCP) bajo redes móviles 3G/4G/5G, tanto en la plantilla estándar como en la maquetación de lienzo Canvas.</li>
+<li class=""><strong>Restricción de Rendimiento de Compilación AOT (&lt; 3s Pipeline):</strong> El pipeline de compilación Ahead-Of-Time (AOT) en el backend debe completarse en menos de 3 segundos tras la confirmación de publicación (<code>POST /api/v1/admin/menu/publish</code>) desde el panel administrativo.</li>
+<li class=""><strong>Gestión de Activos y Variantes Adaptativas:</strong> Todas las imágenes del lienzo (fondos y platos) deben ser procesadas y entregadas mediante variantes adaptativas (<code>srcset</code>) optimizadas para pantallas móviles en formatos modernos WebP y AVIF a partir de los originales almacenados en SeaweedFS.</li>
+<li class=""><strong>Almacenamiento y Caché Perimetral (CDN):</strong> El menú público se sirve a través de la red perimetral (<code>ADR-0005</code> y <code>ADR-0006</code>) con cabeceras de caché HTTP (<code>Cache-Control: public, max-age=3600, s-maxage=86400</code>). El backend emite una orden de purgado de caché inmediata al publicar cambios.</li>
+<li class=""><strong>Adaptación de Escala Responsiva:</strong> El lienzo renderizado debe normalizar las coordenadas relativas respecto a un ancho base estándar garantizando legibilidad en terminales móviles sin scroll horizontal indeseado.</li>
+<li class=""><strong>Desacoplamiento Estricto de Datos y Vista:</strong> La configuración del lienzo se almacena como un objeto semiestructurado opcional (<code>layout_config</code>) en PostgreSQL <code>JSONB</code>, desacoplado de las entidades relacionales (<code>ADR-0005</code>).</li>
+<li class=""><strong>Carga Asíncrona de Fondos e Imágenes:</strong> Los fondos personalizados del lienzo emplean URLs pre-firmadas hacia SeaweedFS (<code>ADR-0004</code>).</li>
+<li class=""><strong>Medición de Rendimiento con Trazas (OpenTelemetry):</strong> El presupuesto de latencia se auditará exclusivamente mediante trazas distribuidas y <code>spans</code> delimitados.</li>
+<li class=""><strong>Registro de Logs Estructurados y Privacidad:</strong> Las excepciones operativas se registrarán en formato JSON estructurado con <code>tenant_id</code>, <code>http.status_code</code>, <code>error.code</code>, <code>trace_id</code> y <code>span_id</code>. Prohibido almacenar PII.</li>
 <li class=""><strong>Arquitectura de API:</strong> Consumo exclusivo a través de REST API (<code>ADR-0001</code>).</li>
 </ul>
 <hr>
@@ -62,25 +64,28 @@
 <li class=""><strong>ADR-0003:</strong> Persistencia semiestructurada en PostgreSQL utilizando columnas <code>JSONB</code> e índices <code>GIN</code>.</li>
 <li class=""><strong>ADR-0004:</strong> Carga asíncrona de imágenes mediante URLs pre-firmadas a SeaweedFS.</li>
 <li class=""><strong>ADR-0005:</strong> Presupuesto de latencia &lt; 2s LCP y caching perimetral en CDN.</li>
-<li class=""><strong>ADR-0006:</strong> Seguridad declarativa y autorización desacoplada con OPA y Rego.</li>
+<li class=""><strong>ADR-0006:</strong> Compilación Ahead-Of-Time (AOT) y Caché Perimetral en CDN para el Lienzo de Menú (Canvas).</li>
+<li class=""><strong>ADR-0006 (Seguridad):</strong> Seguridad declarativa y autorización desacoplada con OPA y Rego.</li>
 <li class=""><strong>ADR-0007:</strong> Procesamiento de pedidos con cola FIFO y eventos WebSockets en tiempo real.</li>
-<li class=""><strong>ADR-0005 (Capa Visual):</strong> Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).</li>
+<li class=""><strong>ADR-0008:</strong> Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).</li>
 </ul>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_jIvb" id="5-desglose-de-tareas-atómicas-desarrollo-en-paralelo">5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)<a href="#5-desglose-de-tareas-atómicas-desarrollo-en-paralelo" class="hash-link" aria-label="Enlace directo al 5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)" title="Enlace directo al 5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)" translate="no">​</a></h2>
 <h3 class="anchor anchorTargetStickyNavbar_jIvb" id="tareas-de-frontend-resto-core-front">Tareas de Frontend (<code>resto-core-front</code>)<a href="#tareas-de-frontend-resto-core-front" class="hash-link" aria-label="Enlace directo al tareas-de-frontend-resto-core-front" title="Enlace directo al tareas-de-frontend-resto-core-front" translate="no">​</a></h3>
 <ul>
-<li class="">Construir la vista responsive de la Carta QR con soporte dual: plantilla predeterminada y vista Canvas.</li>
+<li class="">Construir la vista responsive de la Carta QR consumiendo el artefacto plano estático precompilado por la CDN.</li>
+<li class="">Implementar el renderizado de imágenes adaptativas mediante <code>srcset</code> y formatos WebP/AVIF servidos desde los nodos perimetrales.</li>
 <li class="">Implementar el editor visual interactivo en el panel de administración (arrastrar elementos, redimensionar, asignar <code>z-index</code>, seleccionar fondos y previsualizar).</li>
-<li class="">Diseñar el motor de escala responsiva del lienzo para terminales móviles garantizando relación de aspecto y legibilidad.</li>
+<li class="">Conectar el botón de &quot;Publicar Menú&quot; en el CMS con el endpoint <code>POST /api/v1/admin/menu/publish</code>, mostrando el estado del trabajo de compilación AOT.</li>
 <li class="">Implementar la lógica de fallback hacia la maquetación secuencial ante errores en la carga del <code>layout_config</code>.</li>
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_jIvb" id="tareas-de-backend-resto-core-back">Tareas de Backend (<code>resto-core-back</code>)<a href="#tareas-de-backend-resto-core-back" class="hash-link" aria-label="Enlace directo al tareas-de-backend-resto-core-back" title="Enlace directo al tareas-de-backend-resto-core-back" translate="no">​</a></h3>
 <ul>
-<li class="">Extender el endpoint público <code>GET /api/v1/tenants/{tenant_slug}/menu</code> para retornar el objeto opcional <code>layout_config</code>.</li>
-<li class="">Implementar el endpoint protegido <code>PUT /api/v1/admin/menu/layout</code> para guardar, actualizar o deshabilitar la configuración del lienzo.</li>
-<li class="">Persistir <code>layout_config</code> como columna <code>JSONB</code> en la entidad del Tenant o Menú con soporte de validación de esquema.</li>
-<li class="">Asegurar que la actualización de la maquetación visual dispare la invalidación atómica de caché en memoria y CDN.</li>
+<li class="">Implementar el endpoint <code>POST /api/v1/admin/menu/publish</code> para desencadenar el pipeline asíncrono de compilación AOT, compresión de activos e invalidación de caché.</li>
+<li class="">Diseñar el pipeline de aplanamiento geométrico AOT en menos de 3 segundos SLA.</li>
+<li class="">Implementar el servicio de optimización de imágenes (WebP/AVIF y generación de <code>srcset</code>) conectado con SeaweedFS.</li>
+<li class="">Configurar la integración con la API de la CDN para emisión de purgado de caché selectivo por tag del tenant.</li>
+<li class="">Configurar cabeceras de respuesta HTTP (<code>Cache-Control: public, max-age=3600, s-maxage=86400</code>) en <code>GET /api/v1/tenants/{tenant_slug}/menu</code>.</li>
 </ul>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_jIvb" id="6-criterios-de-verificación-ears--escenarios-gherkin">6. Criterios de Verificación (EARS + Escenarios Gherkin)<a href="#6-criterios-de-verificación-ears--escenarios-gherkin" class="hash-link" aria-label="Enlace directo al 6. Criterios de Verificación (EARS + Escenarios Gherkin)" title="Enlace directo al 6. Criterios de Verificación (EARS + Escenarios Gherkin)" translate="no">​</a></h2>
