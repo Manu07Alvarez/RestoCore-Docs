@@ -40,6 +40,8 @@ allow {
         "manage_dishes",
         "manage_prices",
         "manage_branding",
+        "manage_layout",
+        "publish_menu",
         "manage_tables",
         "generate_presigned_url",
         "read_metrics",

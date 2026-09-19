@@ -4,6 +4,18 @@ Este documento refleja en orden cronológico la actividad del repositorio, los P
 
 ---
 
+## Hito: Modo Lienzo (Canvas Layout) y Compilación Ahead-Of-Time (Feature 005 en `resto-core-back`)
+* **Fecha:** 19 de Septiembre de 2026
+* **Commit:** `783e3d5` en `resto-core-back`
+* **Resumen:** Implementación completa del soporte de maquetación visual libre y compilación perimetral:
+  * **Modelos de Dominio:** Value Objects inmutables `LayoutConfig` y `CanvasElement` mapeados a columnas `JSONB` en PostgreSQL (`Tenant.LayoutConfig`). Entidad `MenuPublishJob` (`ITenantScopedEntity`) para seguimiento y auditoría asíncrona del pipeline AOT.
+  * **Casos de Uso CQRS:** `UpdateMenuLayoutCommand` con validaciones geométricas estrictas en FluentValidation (`UpdateMenuLayoutValidator`), `PublishMenuCommand` con procesamiento en segundo plano y retorno HTTP 202 Accepted, y `GetPublicMenuQuery` con depuración automática de platos huérfanos y cabeceras `Cache-Control: public, max-age=3600, s-maxage=86400`.
+  * **Infraestructura y Persistencia:** Migración EF Core `20260918025637_AddCanvasLayoutAndMenuPublishJobs`, servicio de aplanamiento geométrico `MenuCompilationService` (SLA < 3 segundos), y adaptador `LocalDevelopmentCdnPurgeService` con instrumentación OTel para fallas (`CDN_PURGE_FAILURE`).
+  * **Minimal APIs:** Endpoints `PUT /api/v1/admin/menu/layout` y `POST /api/v1/admin/menu/publish` protegidos por autorización declarativa OPA/Rego (`manage_layout`, `publish_menu`).
+  * **Cobertura de Pruebas:** Nuevas suites de pruebas unitarias e integradas (`AdminMenuLayoutEndpointsTests`, `MenuPublishEndpointsTests`, `PublicMenuCanvasEndpointsTests`, `MenuCompilationServiceTests`, `UpdateMenuLayoutValidatorTests`, `PublicMenuCanvasTests`).
+
+---
+
 ## Hito: Optimizaciones de Rendimiento y Caché Post-Commit (`resto-core-back`)
 * **Fecha:** 15 de Septiembre de 2026
 * **Resumen:** Reemplazo de MediatR por un mediador CQRS permisivo de cero dependencias (`RestoCore.Application/Common/Mediator`). Implementación de caché en memoria de alta concurrencia con llaves versionadas por tenant e invalidación atómica post-commit en `ApplicationDbContext.SaveChangesAsync()`, eliminando lecturas sucias durante actualizaciones concurrentes.

@@ -35,7 +35,9 @@ const sidebars = {
             'developers/adr/0004-carga-asincrona-de-imagenes-seaweedfs',
             'developers/adr/0005-presupuesto-latencia-y-cache-cdn',
             'developers/adr/0006-seguridad-declarativa-opa-rego',
-            'developers/adr/0007-procesamiento-pedidos-cola-fifo-websockets'
+            'developers/adr/0007-procesamiento-pedidos-cola-fifo-websockets',
+            'developers/adr/0008-desacoplamiento-catalogo-y-capa-visual-canvas',
+            'developers/adr/0009-compilacion-aot-y-caching-perimetral-de-lienzo-canvas'
           ]
         }
       ]

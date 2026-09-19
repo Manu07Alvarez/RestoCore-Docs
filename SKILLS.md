@@ -23,7 +23,8 @@ RestoCore-Docs/
 │       ├── c4/SKILL.md           # /c4       - Diagramado de Arquitectura C4 en Mermaid.js
 │       ├── runbook/SKILL.md      # /runbook  - Runbooks Ejecutables Interactivos (Runme.dev)
 │       ├── sec/SKILL.md          # /sec      - Security-as-Code con Open Policy Agent (OPA)
-│       └── domain/SKILL.md       # /domain   - Lenguaje Ubicuo y Glosario DDD
+│       ├── domain/SKILL.md       # /domain   - Lenguaje Ubicuo y Glosario DDD
+│       └── backend-sync/SKILL.md # /backend-sync - Sincronización y Documentación de Backend (.NET 10)
 ```
 
 ---
@@ -39,3 +40,4 @@ RestoCore-Docs/
 * `/runbook` — Diseñar Runbooks ejecutables interactivos con Runme.dev (`docs/runbooks/`).
 * `/sec` — Formalizar políticas de seguridad declarativa OPA/Rego (`specs/policies/`).
 * `/domain` — Gestionar el Glosario de Lenguaje Ubicuo y DDD (`docs/domain-glossary.md`).
+* `/backend-sync` — Inspeccionar e integrar avances técnicos de `resto-core-back` en `RestoCore-Docs`.
