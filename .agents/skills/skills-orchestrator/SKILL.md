@@ -30,7 +30,7 @@ El agente guiará al equipo a avanzar ordenadamente a través del flujo homologa
 
 ## 🧭 Flujo Conversacional Obligatorio (El Patrón de Diálogo)
 
-Ante la invocación de cualquier comando (/adr, /prd, /ears, /api, /pr, /c4, /runbook, /sec, /domain), el agente seguirá estrictamente esta secuencia:
+Ante la invocación de cualquier comando (/adr, /prd, /ears, /api, /pr, /c4, /runbook, /sec, /domain, /backend-sync), el agente seguirá estrictamente esta secuencia:
 
 ### Fase 1: Diagnóstico y Recepción de Entrada
 * **Comando Vacío:** No redactar el documento final de inmediato. Presentar la función del comando, proponer por qué sección o recomendación comenzar y realizar un máximo de dos preguntas dirigidas.
