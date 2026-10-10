@@ -2,6 +2,47 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Repositorios, Unit of Work con Resiliencia de Concurrencia y Autenticación JWT (Feature 006 en `resto-core-back`)
+* **Fecha:** 10 de Octubre de 2026
+* **Commit:** `41738b1` en `resto-core-back`
+* **Resumen:** Refactorización integral de la capa de persistencia y módulo de identidad:
+  * **Segregación de Repositorios:** Creación de interfaces de persistencia segregadas por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`), desacoplando de manera estricta todos los comandos y consultas de la capa de Aplicación respecto de `IApplicationDbContext`.
+  * **Unidad de Trabajo (Unit of Work):** Implementación de `IUnitOfWork` y `UnitOfWork` para delimitación atómica explícita de transacciones y confirmación unificada (`CommitAsync`, `BeginTransactionAsync`, `CommitTransactionAsync`, `RollbackTransactionAsync`).
+  * **Resiliencia ante Concurrencia Optimista:** Estrategia de reintentos automáticos con retroceso exponencial (*exponential backoff*) y fluctuación aleatoria (*jitter*) ante colisiones `DbUpdateConcurrencyException` en `KitchenRepository.UpdateItemAvailabilityWithRetryAsync`, desacoplando la entidad del ChangeTracker (`EntityState.Detached`) antes de cada reintento.
+  * **Autenticación e Identidad JWT:** Mapeo de Minimal APIs en `AuthEndpoints` (`POST /api/v1/auth/login` y `GET /api/v1/auth/me`) para emisión y validación de tokens JWT con claims de usuario (`sub`, `name`, `email`), contexto multi-tenant (`tenant_id`, `tenant_slug`) y roles (`owner`, `tenant_admin`, `kitchen_staff`, `cook`, `super_admin`).
+  * **CORS Estricto y Middleware de Ejecución:** Restricción configurable de orígenes cruzados vía `CORS_ALLOWED_ORIGINS` con credenciales y exposición de la cabecera `ETag`. Registro estructurado de solicitudes HTTP correlacionadas con trazas W3C de OpenTelemetry.
+  * **Cobertura de Pruebas:** Incremento a 33 pruebas unitarias superadas en `RestoCore.UnitTests`, incorporando suites para validación de reintentos concurrentes (`ToggleItemAvailabilityCommandHandlerTests`).
+
+---
+
+## Hito: Postergación del Seguimiento de Ocupación por QR y Visión de Módulo Waitlist (ADR-0012)
+* **Fecha:** 22 de Septiembre de 2026
+* **Resumen:** Formalización de exclusión técnica y visión de expansión de salón:
+  * **Decisión de Arquitectura (ADR-0012 - Pospuesto):** Se descarta medir ocupación real y tiempo de estancia vía lecturas de código QR de mesa, constatando la falta de correlación directa entre escaneos y personas físicas y evitando ventanas de expiración (TTL) imprecisas en la base de datos.
+  * **Visión de Módulo de Turnos y Recepción (Waitlist/Turnos):** Las métricas fidedignas de permanencia, rotación de mesas y cálculo estricto de RevPASH se delegan a un futuro módulo con registro verificado de comensales sentados y marcas de tiempo físicas.
+  * **Ajuste en Especificaciones:** Pausado formal del requerimiento `[EARS-METRIC-006]`, preservación de `table_token` como parámetro puramente contextual en OpenAPI 3.1 y exclusión de contadores de presencia de mesa en el dashboard analítico de Plan Pro.
+
+---
+
+## Hito: Jerarquía de Métricas Analíticas y Telemetría de Menú (ADR-0011)
+* **Fecha:** 21 de Septiembre de 2026
+* **Resumen:** Estructuración y formalización de la jerarquía analítica por fases de negocio y modelo de telemetría:
+  * **Decisión de Arquitectura (ADR-0011):** Adopción de un esquema en tres niveles de prioridad para evitar acoplamientos prematuros y salvaguardar el presupuesto de latencia de la carta QR (< 2s LCP).
+  * **Nivel 1 - Prioridad Alta (Fase MVP / Tráfico e Ingeniería de Menú):** Conteo agregado de aperturas de QR (día/mes), popularidad de platos, categorías más interactivas y Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles y Perros) combinando interacción con márgenes de contribución.
+  * **Nivel 2 - Prioridad Media (Plan Pro):** Distribución horaria de horas pico, RevPASH (Revenue Per Available Seat-Hour), rotación y permanencia en mesas, y desglose de dispositivos.
+  * **Nivel 3 - Prioridad Baja (Fases Avanzadas):** Costo Primo (COGS + Nómina), varianza teórico-real de alimentos, tiempos de comanda en cocina (KDS) y rotación de inventarios.
+  * **Especificación y Contratos:** Endpoints `POST /api/v1/analytics/collect` y `GET /api/v1/admin/analytics/dashboard` documentados en OpenAPI 3.1, cláusulas de comportamiento formal EARS (`[EARS-METRIC-001]` a `[EARS-METRIC-010]`) y políticas OPA de acceso público e ingesta anónima sin PII.
+
+---
+
+## Hito: Baja Suave de Platos (Soft Delete) y Snapshots Inmutables en Comandas (ADR-0010)
+* **Fecha:** 20 de Septiembre de 2026
+* **Resumen:** Definición y formalización del ciclo de vida seguro de platos y preservación contable histórica:
+  * **Decisión de Arquitectura (ADR-0010):** Adopción exclusiva del patrón de baja suave (`IsDeleted = true`, `DeletedAtUtc = now`) mediante Global Query Filters en EF Core, descartando la baja física destructiva para proteger la integridad referencial y las transacciones de ventas pasadas.
+  * **Snapshots Inmutables en Comandas:** Desacoplamiento de `OrderItem` frente a modificaciones o retiro de platos mediante clave foránea nulable (`MenuItemId: Guid?` con `ON DELETE SET NULL`) y captura inmutable de campos congelados (`ItemNameSnapshot`, `UnitPriceSnapshot` y `AppliedModifiersJson`).
+  * **Experiencia de Usuario No Técnica:** Confirmación amigable al usuario administrador clarificando que el plato ya no es visible para comensales mientras sus reportes pasados permanecen intactos. Bloqueo automático con HTTP 409 Conflict y mensaje claro si el plato tiene comandas abiertas o en preparación en cocina (KDS).
+  * **Especificación y Contratos:** Endpoints `DELETE /api/v1/admin/items/{id}` y `POST /api/v1/admin/items/{id}/restore` documentados en OpenAPI 3.1, cláusulas de comportamiento formal EARS (`[EARS-DISH-001]` a `[EARS-DISH-005]`) y reglas de autorización OPA (`archive_dish`, `restore_dish`).
+
 ---
 
 ## Hito: Modo Lienzo (Canvas Layout) y Compilación Ahead-Of-Time (Feature 005 en `resto-core-back`)

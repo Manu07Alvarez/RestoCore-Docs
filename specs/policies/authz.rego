@@ -10,11 +10,16 @@ default allow = false
 
 # -----------------------------------------------------------------------------
 # 1. Acceso Público Libre (Sin Autenticación)
-# Únicamente la lectura de la Carta QR digital para clientes
+# Lectura de la Carta QR digital para clientes e ingesta de eventos de navegación
 # -----------------------------------------------------------------------------
 allow {
     input.method == "GET"
     input.path = ["api", "v1", "tenants", _, "menu"]
+}
+
+allow {
+    input.method == "POST"
+    input.path = ["api", "v1", "analytics", "collect"]
 }
 
 # -----------------------------------------------------------------------------
@@ -38,6 +43,8 @@ allow {
         "manage_menu",
         "manage_categories",
         "manage_dishes",
+        "archive_dish",
+        "restore_dish",
         "manage_prices",
         "manage_branding",
         "manage_layout",

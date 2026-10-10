@@ -23,23 +23,45 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **Identificación de Mesa en Salón:** Captura del token de seguridad de la mesa (`table_token`) mediante la URL del QR para vincular la sesión del usuario a una ubicación física en el local.
 * **Adaptación Responsiva de Lienzo:** Escalado proporcional automático del lienzo a diferentes resoluciones de pantallas móviles (iOS y Android) evitando desbordamientos de interfaz.
 * **Fallback Automático de Resiliencia:** Conmutación inmediata y transparente a la plantilla predeterminada secuencial si la configuración del lienzo no está activa, falla al cargar o contiene un esquema corrupto.
+* **Baja Suave de Platos (Archivado de Carta):** Retiro seguro de platos del catálogo mediante marcado lógico (`IsDeleted = true`, `DeletedAtUtc`), excluyéndolos automáticamente de la carta digital de los clientes y del lienzo visual mediante Global Query Filters.
+* **Snapshots Inmutables de Comandas:** Preservación inmutable de datos históricos y contables en `OrderItem` (`ItemNameSnapshot`, `UnitPriceSnapshot`, `AppliedModifiersJson`) con clave foránea desacoplable (`MenuItemId` nulable con `ON DELETE SET NULL`), garantizando que archivar un plato jamás altere facturas ni auditorías pasadas.
+* **Bloqueo Operativo con Explicación No Técnica ante Pedidos Activos:** Validación que impide archivar un plato si existen comandas activas o en preparación en cocina, respondiendo con HTTP 409 Conflict y un mensaje comprensible, empático y libre de tecnicismos.
+* **Confirmación Amigable de Retiro Exitoso:** Respuesta informativa al usuario administrador que clarifica de forma simple que el plato ya no es visible para los clientes pero que todo el historial de ventas permanece seguro e intacto.
+* **Restauración de Platos:** Reincorporación inmediata de platos archivados (`POST /api/v1/admin/items/{id}/restore`) al menú público.
+* **Telemetría y Métricas Analíticas - Prioridad Alta (Fase MVP):** Ingesta asíncrona de eventos de navegación sin impacto en latencia:
+  * Tráfico de acceso QR y visitas agregadas (día / mes).
+  * Platos más vistos y popularidad de productos.
+  * Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles y Perros) combinando popularidad con márgenes de contribución.
+  * Categorías más populares e interactivas.
 
 ### Funcionalidades Excluidas (Out-of-Scope - MVP)
+* **Medición de Ocupación y Tiempo de Permanencia de Mesas vía QR:** Queda formalmente excluida la inferencia de ocupación de salón, cálculo de comensales sentados, rotación de mesas y duración del ciclo de servicio a través del escaneo del código QR de la mesa (ADR-0012). El escaneo no garantiza presencia física ni número de personas, evitando la complejidad de mantener ventanas temporales (TTL) imprecisas en la base de datos.
+* **Métricas de Prioridad Media (Plan Pro - Fases Posteriores):** Curva de horas pico en salón, cálculo de RevPASH (Revenue Per Available Seat-Hour) y analítica avanzada de salón (diferido a módulos dedicados).
+* **Métricas de Prioridad Baja (Fases Avanzadas - Integraciones Externas):** Costo Primo (Prime Cost), Varianza de costo teórico vs. real de alimentos, y tiempos de comanda en cocina (requieren integración con POS, RMS, inventarios y nóminas).
+* **Baja Física Permanente de Platos (Hard Delete):** Queda estrictamente excluida la eliminación física destructiva (`DELETE` relacional) de platos en la base de datos de producción para evitar inconsistencias referenciales e históricas (ADR-0010).
 * **Animaciones Complejas en Video o 3D:** Renderizado de elementos tridimensionales interactivos o fondos animados en video de alto peso.
 * **Edición Directa de Código CSS/HTML:** Inyección de estilos libres o scripts por parte de los usuarios administradores.
 * **Registro o Autenticación de Clientes:** La visualización de la Carta QR es 100% anónima; no se solicita login ni registro de usuario.
 * **Pagos en Línea desde la Carta:** Integración con pasarelas de pago (diferido para iteraciones posteriores).
 * **Llamada Digital a Mozo:** Botón de solicitud de atención física en mesa desde el celular (diferido).
 
+### Visión de Expansión Futura (Módulo de Gestión de Turnos y Recepción / Waitlist)
+En fases posteriores, la medición precisa de ocupación y rotación se implementará mediante un módulo especializado de **Gestión de Turnos y Recepción (Waitlist/Turnos)**:
+* **Conteo Real de Comensales:** Registro verificado de personas sentadas por mesa gestionado por el personal de salón o tótem de autoservicio en puerta.
+* **Tiempo de Asignación y Ciclo de Servicio:** Marcas de tiempo exactas al momento de sentar a los comensales (mesa ocupada) y de cierre de cuenta/limpieza (mesa liberada), permitiendo derivar indicadores fidedignos de rotación de mesas y RevPASH sin estimaciones erróneas basadas en tráfico web.
+
 ---
 
 ## 3. Restricciones y Asunciones
 * **Presupuesto de Latencia y Rendimiento de Entrega (< 2s LCP):** La entrega del artefacto estático compilado desde la CDN perimetral al comensal no debe superar los 2 segundos de tiempo total de respuesta (< 2.0s LCP) bajo redes móviles 3G/4G/5G, tanto en la plantilla estándar como en la maquetación de lienzo Canvas.
+* **Captura Analítica Asíncrona Desacoplada:** El envío de telemetría de navegación y visualización de platos debe ejecutarse mediante `navigator.sendBeacon` o peticiones `POST` en segundo plano sin bloquear el hilo principal ni degradar el LCP del comensal.
 * **Restricción de Rendimiento de Compilación AOT (< 3s Pipeline):** El pipeline de compilación Ahead-Of-Time (AOT) en el backend debe completarse en menos de 3 segundos tras la confirmación de publicación (`POST /api/v1/admin/menu/publish`) desde el panel administrativo.
 * **Gestión de Activos y Variantes Adaptativas:** Todas las imágenes del lienzo (fondos y platos) deben ser procesadas y entregadas mediante variantes adaptativas (`srcset`) optimizadas para pantallas móviles en formatos modernos WebP y AVIF a partir de los originales almacenados en SeaweedFS.
 * **Almacenamiento y Caché Perimetral (CDN):** El menú público se sirve a través de la red perimetral (`ADR-0005` y `ADR-0006`) con cabeceras de caché HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`). El backend emite una orden de purgado de caché inmediata al publicar cambios.
 * **Adaptación de Escala Responsiva:** El lienzo renderizado debe normalizar las coordenadas relativas respecto a un ancho base estándar garantizando legibilidad en terminales móviles sin scroll horizontal indeseado.
 * **Desacoplamiento Estricto de Datos y Vista:** La configuración del lienzo se almacena como un objeto semiestructurado opcional (`layout_config`) en PostgreSQL `JSONB`, desacoplado de las entidades relacionales (`ADR-0005`).
+* **Integridad Referencial Histórica con Snapshots Inmutables:** Los registros de pedidos nunca deben depender de la existencia continua del registro en `MenuItem`. Toda modificación o archivado de catálogo respeta los datos congelados en `OrderItem` (ADR-0010).
+* **Parámetro de Mesa Contextual:** El atributo `table_token` actúa exclusivamente como parámetro contextual opcional en la URL del menú digital para referenciar la mesa física si se requiere, descartando su uso para inferir estados de presencia o sesiones de estancia (ADR-0012).
 * **Carga Asíncrona de Fondos e Imágenes:** Los fondos personalizados del lienzo emplean URLs pre-firmadas hacia SeaweedFS (`ADR-0004`).
 * **Medición de Rendimiento con Trazas (OpenTelemetry):** El presupuesto de latencia se auditará exclusivamente mediante trazas distribuidas y `spans` delimitados.
 * **Registro de Logs Estructurados y Privacidad:** Las excepciones operativas se registrarán en formato JSON estructurado con `tenant_id`, `http.status_code`, `error.code`, `trace_id` y `span_id`. Prohibido almacenar PII.
@@ -57,6 +79,9 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **ADR-0006 (Seguridad):** Seguridad declarativa y autorización desacoplada con OPA y Rego.
 * **ADR-0007:** Procesamiento de pedidos con cola FIFO y eventos WebSockets en tiempo real.
 * **ADR-0008:** Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).
+* **ADR-0010:** Baja Suave (Soft Delete) de Platos del Menú, Snapshots Inmutables en Comandas y Explicaciones Claras al Usuario.
+* **ADR-0011:** Jerarquía de Métricas Analíticas por Fases y Modelo de Telemetría de Menú.
+* **ADR-0012:** Postergación del Seguimiento de Ocupación de Mesas por QR y Visión de Módulo de Turnos (Waitlist).
 
 ---
 
@@ -68,6 +93,8 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * Implementar el editor visual interactivo en el panel de administración (arrastrar elementos, redimensionar, asignar `z-index`, seleccionar fondos y previsualizar).
 * Conectar el botón de "Publicar Menú" en el CMS con el endpoint `POST /api/v1/admin/menu/publish`, mostrando el estado del trabajo de compilación AOT.
 * Implementar la lógica de fallback hacia la maquetación secuencial ante errores en la carga del `layout_config`.
+* Implementar modal de confirmación amigable para retiro de platos en el panel administrativo, mostrando el mensaje de tranquilidad histórica y gestionando la alerta en caso de conflicto por pedidos en cocina.
+* Implementar la acción de restauración de platos desde el archivo de catálogo.
 
 ### Tareas de Backend (`resto-core-back`)
 * Implementar el endpoint `POST /api/v1/admin/menu/publish` para desencadenar el pipeline asíncrono de compilación AOT, compresión de activos e invalidación de caché.
@@ -75,6 +102,9 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * Implementar el servicio de optimización de imágenes (WebP/AVIF y generación de `srcset`) conectado con SeaweedFS.
 * Configurar la integración con la API de la CDN para emisión de purgado de caché selectivo por tag del tenant.
 * Configurar cabeceras de respuesta HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`) en `GET /api/v1/tenants/{tenant_slug}/menu`.
+* Implementar `SoftDeleteMenuItemCommand` (`DELETE /api/v1/admin/items/{id}`) verificando ausencia de pedidos activos en KDS antes de marcar `IsDeleted = true`.
+* Mapear en `OrderItem` los campos inmutables `ItemNameSnapshot`, `UnitPriceSnapshot` y `AppliedModifiersJson` con clave `MenuItemId` nulable.
+* Implementar `RestoreMenuItemCommand` (`POST /api/v1/admin/items/{id}/restore`).
 
 ---
 
@@ -89,6 +119,10 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **Unwanted Behavior (Lienzo Fallido):** SI la carga del archivo de configuración del lienzo falla o no es válido, ENTONCES el sistema DEBERÁ alternar automáticamente al renderizado de la plantilla predeterminada.
 * **Unwanted Behavior:** SI la URL del código QR contiene un `table_token` inválido o deshabilitado, ENTONCES el sistema DEBERÁ permitir la lectura del menú notificando sutilmente que la mesa no está activa para interacciones de pedido.
 * **Optional Features:** DONDE la mesa posea un `table_token` activo, el sistema DEBERÁ guardar la asociación de la mesa en el contexto del navegador.
+* **Event-Driven (Baja Suave):** CUANDO el administrador solicite retirar un plato del menú, el sistema DEBERÁ marcarlo como inactivo preservando los registros de pedidos anteriores y retornar una confirmación amigable.
+* **Ubiquitous (Snapshots Históricos):** El sistema DEBERÁ persistir copias inmutables del nombre, precio unitario y modificadores en cada línea de pedido.
+* **State-Driven (Exclusión de Carta):** MIENTRAS un plato permanezca retirado del catálogo, el sistema DEBERÁ excluirlo de la carta digital pública y del lienzo visual.
+* **Unwanted Behavior (Bloqueo en Cocina):** SI existen pedidos pendientes o en preparación en cocina que incluyan el plato a retirar, ENTONCES el sistema DEBERÁ rechazar la operación con HTTP 409 y mostrar una explicación no técnica de bloqueo.
 
 ### Escenarios Gherkin
 
@@ -111,4 +145,17 @@ Feature: Visualización de Carta QR y Maquetación de Lienzo Personalizado
     When el cliente solicita la carta digital
     Then el sistema DEBERÁ detectar el fallo de esquema
     And DEBERÁ conmutar automáticamente al renderizado de la plantilla secuencial por categorías sin interrumpir el servicio
+
+  Scenario: Retiro exitoso de un plato de la carta (Baja Suave)
+    Given que el plato "Bife de Chorizo" no se encuentra en pedidos pendientes de cocina
+    When el administrador confirma retirar el plato de la carta
+    Then el sistema DEBERÁ marcar el plato como inactivo (IsDeleted = true)
+    And DEBERÁ responder con HTTP 200 y el mensaje "El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros."
+    And el plato DEBERÁ dejar de visualizarse inmediatamente en la carta digital pública
+
+  Scenario: Intento de retiro de plato con comandas en preparación en cocina
+    Given que el plato "Hamburguesa Criolla" tiene una orden en estado "En Preparación" en cocina
+    When el administrador solicita retirar el plato de la carta
+    Then el sistema DEBERÁ responder con HTTP 409 Conflict
+    And DEBERÁ retornar el mensaje "Este plato no puede retirarse de la carta en este momento porque la cocina tiene pedidos pendientes o en preparación que lo incluyen. Por favor, finaliza o cancela esos pedidos antes de retirarlo."
 ```

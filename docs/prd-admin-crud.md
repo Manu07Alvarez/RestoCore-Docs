@@ -50,8 +50,9 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 * Desarrollar la vista de gestión de mesas con previsualización y exportación de códigos QR.
 
 ### Tareas de Backend (`resto-core-back`)
-* Diseñar endpoints REST protegidos: `POST /api/v1/admin/menu/categories`, `PUT /api/v1/admin/menu/items`, `POST /api/v1/admin/tables`, `POST /api/v1/admin/images/presigned-url`.
-* Implementar la mutación de estructuras `JSONB` en PostgreSQL para menus y la gestión de tablas.
+* [x] Diseñar e implementar endpoints REST protegidos: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/admin/categories`, `POST /api/v1/admin/items`, `DELETE /api/v1/admin/items/{id}`, `POST /api/v1/admin/items/{id}/restore`, `GET /api/v1/admin/tables/{id}/qr`, `POST /api/v1/storage/presigned-upload`.
+* [x] Implementar la mutación de estructuras `JSONB` en PostgreSQL para menús, modificadores y la gestión de tablas físicas.
+* [x] Implementar el patrón Repositorio segregado (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`) y `IUnitOfWork` con resiliencia ante concurrencia optimista (`DbUpdateConcurrencyException`).
 
 ---
 

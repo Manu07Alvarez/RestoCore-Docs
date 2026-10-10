@@ -62,7 +62,55 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ---
 
-## 4. Matriz de Trazabilidad EARS
+## 4. Requisitos de Ciclo de Vida y Baja Suave de Platos (Soft Delete)
+
+### 4.1. Retiro de Platos y Preservación Histórica
+* **[EARS-DISH-001] (Event-Driven):**
+  CUANDO el administrador solicite archivar un plato (`DELETE /api/v1/admin/items/{id}`) y no existan pedidos activos asociados en cocina, el sistema DEBERÁ marcar la entidad como archivada (`IsDeleted = true`), registrar la fecha de baja (`DeletedAtUtc`), invalidar la caché del menú y responder con una confirmación no técnica indicando que el plato se retiró de la carta y que el historial de ventas permanece intacto.
+* **[EARS-DISH-002] (Ubiquitous):**
+  El sistema DEBERÁ registrar snapshots inmutables (`ItemNameSnapshot`, `UnitPriceSnapshot`, `AppliedModifiersJson`) en cada línea de pedido (`OrderItem`), garantizando que los comprobantes y reportes contables históricos permanezcan inalterables independientemente de la baja suave del plato.
+* **[EARS-DISH-003] (State-Driven):**
+  MIENTRAS un plato se encuentre en estado archivado (`IsDeleted == true`), el sistema DEBERÁ excluirlo automáticamente de las consultas de la carta pública y del catálogo de pedidos activos mediante filtros de consulta globales (*Global Query Filters*).
+
+### 4.2. Bloqueo de Seguridad Operacional y Restauración
+* **[EARS-DISH-004] (Unwanted Behavior):**
+  SI el plato solicitado para baja se encuentra incluido en comandas activas en salón o cocina (`Pending`, `InPreparation`, `Ready`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict y proveer una advertencia no técnica informando que no es posible retirar el plato mientras existan pedidos en preparación.
+* **[EARS-DISH-005] (Event-Driven):**
+  CUANDO el administrador ejecute la restauración de un plato archivado (`POST /api/v1/admin/items/{id}/restore`), el sistema DEBERÁ restablecer el estado activo (`IsDeleted = false`), invalidar la caché perimetral del tenant y habilitar su visualización inmediata en la carta digital.
+
+---
+
+## 5. Requisitos de Jerarquía de Métricas Analíticas y Telemetría de Menú
+
+### 5.1. Prioridad Alta (Fase MVP / Tráfico e Ingeniería de Menú)
+* **[EARS-METRIC-001] (Event-Driven):**
+  CUANDO un comensal acceda a la carta pública mediante escaneo QR (`GET /api/v1/tenants/{slug}/menu`), el sistema DEBERÁ registrar de forma asíncrona un evento de visita agregable por día y mes sin penalizar el presupuesto de latencia (< 2s LCP).
+* **[EARS-METRIC-002] (Event-Driven):**
+  CUANDO un comensal visualice el detalle de un plato o abra su modal de modificadores en la carta digital, el sistema DEBERÁ registrar un evento de visualización de plato vinculado al identificador del ítem.
+* **[EARS-METRIC-003] (Ubiquitous):**
+  El sistema DEBERÁ consolidar la Matriz de Ingeniería de Menú en el panel administrativo clasificando cada plato según su volumen de visualizaciones y su margen de contribución en cuatro cuadrantes: Estrellas, Caballos de Batalla, Puzzles y Perros.
+* **[EARS-METRIC-004] (Ubiquitous):**
+  El sistema DEBERÁ computar y clasificar las categorías del menú ordenadas por volumen total de visualizaciones e interacciones de comensales.
+
+### 5.2. Prioridad Media (Plan Pro / Rendimiento Temporal y Sala)
+* **[EARS-METRIC-005] (State-Driven):**
+  MIENTRAS el tenant cuente con suscripción Plan Pro activa, el sistema DEBERÁ generar la curva de distribución horaria de visitas identificando las horas pico de afluencia del establecimiento.
+* **[EARS-METRIC-006] (State-Driven - POSPUESTO / DEFERRED - ADR-0012):**
+  MIENTRAS se encuentre integrado el módulo de recepción y turnos de salón (Waitlist/Turnos), el sistema DEBERÁ calcular el indicador RevPASH y la duración fidedigna del ciclo de servicio por mesa mediante eventos físicos de asignación y liberación, descartando el seguimiento impreciso por sesiones web de QR.
+* **[EARS-METRIC-007] (Ubiquitous):**
+  El sistema DEBERÁ segmentar las métricas de navegación por tipo de dispositivo (móvil vs. escritorio) sin almacenar información personal identificable (PII).
+
+### 5.3. Prioridad Baja (Fases Avanzadas / Integraciones Financieras y Operativas)
+* **[EARS-METRIC-008] (Optional Features):**
+  DONDE existan módulos integrados de inventario y nómina laboral, el sistema DEBERÁ calcular el Costo Primo (Prime Cost) consolidando el costo de bienes vendidos (COGS) y el costo laboral total.
+* **[EARS-METRIC-009] (Optional Features):**
+  DONDE el módulo de recetas técnicas esté habilitado, el sistema DEBERÁ reportar la varianza de costo de alimentos comparando el consumo teórico contra el consumo real de inventario.
+* **[EARS-METRIC-010] (Optional Features):**
+  DONDE el Kitchen Display System (KDS) esté conectado, el sistema DEBERÁ auditar el tiempo promedio de comanda en cocina (Kitchen Ticket Time) por turno y franja horaria.
+
+---
+
+## 6. Matriz de Trazabilidad EARS
 
 | Identificador | Tipo EARS | Entidad / Componente | Verificación Automatizada |
 | :--- | :--- | :--- | :--- |
@@ -73,3 +121,12 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-AOT-001** | Event-Driven | AOT Pipeline / Backend | Test de integración `POST /publish` y purgado |
 | **EARS-AOT-003** | State-Driven | CDN Edge / Cloudflare | Test de respuesta HTTP con cabeceras de caché |
 | **EARS-AOT-004** | Unwanted Behavior | AOT Pipeline / CMS | Test de resiliencia y retención de versión previa |
+| **EARS-DISH-001** | Event-Driven | Catalog / Admin Service | Test de endpoint `DELETE /items/{id}` y respuesta amigable |
+| **EARS-DISH-002** | Ubiquitous | Orders / OrderItems Entity | Test de persistencia de snapshots inmutables |
+| **EARS-DISH-004** | Unwanted Behavior | Kitchen KDS / Orders Guard | Test de rechazo 409 con pedidos en cocina |
+| **EARS-DISH-005** | Event-Driven | Catalog / Restore Endpoint | Test de reactivación `POST /items/{id}/restore` |
+| **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
+| **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
+| **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |
+| **EARS-METRIC-006**| State-Driven | Analytics / Waitlist Module | Pospuesto a fase Waitlist (ADR-0012) |
+| **EARS-METRIC-008**| Optional Features| Analytics / Prime Cost Engine | Test condicional de agregación COGS + Nómina |

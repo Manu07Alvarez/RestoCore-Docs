@@ -14,6 +14,66 @@ servers:
     description: Servidor de Desarrollo Local
 
 paths:
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Iniciar sesión y obtener token JWT
+      description: >
+        Autentica un usuario (administrador de tenant, cocinero o superadministrador)
+        mediante correo electrónico y contraseña, emitiendo un token JWT firmado con claims
+        de identidad, roles y tenant asociado.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación exitosa y token JWT emitido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title:
+                    type: string
+                    example: Unauthorized
+                  status:
+                    type: integer
+                    example: 401
+                  detail:
+                    type: string
+                    example: Credenciales inválidas
+
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: Consultar perfil del usuario autenticado
+      description: >
+        Retorna la identidad, claims y roles del usuario autenticado según el token JWT provisto.
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Perfil de usuario recuperado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Token no provisto o inválido
+
   /api/v1/tenants/{tenant_slug}/menu:
     get:
       tags:
@@ -35,7 +95,10 @@ paths:
         - name: table_token
           in: query
           required: false
-          description: Token criptográfico identificador de la mesa física
+          description: >
+            Token criptográfico identificador de la mesa física. Actúa exclusivamente como parámetro
+            contextual opcional para asociar la comanda a la mesa si se requiere, descartando el
+            seguimiento de ocupación o permanencia física por escaneo (ADR-0012).
           schema:
             type: string
             example: sec_99a8b7
@@ -306,6 +369,108 @@ paths:
         '201':
           description: Plato creado exitosamente
 
+  /api/v1/admin/items/{id}:
+    delete:
+      tags:
+        - Admin - Catalog
+      summary: Baja suave de plato gastronómico (Archivado de carta)
+      description: >
+        Ejecuta la baja suave (`IsDeleted = true`, `DeletedAtUtc = now`) del plato en el catálogo
+        del restaurante (ADR-0010). Verifica que el plato no se encuentre en pedidos abiertos o
+        en preparación en cocina (KDS). Si tiene pedidos activos en cocina, bloquea la acción
+        retornando HTTP 409 Conflict con una advertencia humana comprensible. Si la baja suave
+        se ejecuta con éxito, preserva la integridad contable e histórica en `OrderItem` mediante
+        snapshots inmutables y desvinculación a clave foránea nulable, retornando una confirmación
+        amigable y no técnica para el usuario.
+      operationId: deleteMenuItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plato retirado exitosamente de la carta con confirmación amigable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemArchiveResponse'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Bloqueo de retiro por pedidos activos o en preparación en cocina
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/items/{id}/restore:
+    post:
+      tags:
+        - Admin - Catalog
+      summary: Restaurar plato gastronómico previamente retirado
+      description: >
+        Revierte la baja suave de un plato (`IsDeleted = false`, `DeletedAtUtc = null`) en el catálogo
+        del restaurante (ADR-0010), reincorporándolo inmediatamente a la visualización de la carta
+        digital para los clientes.
+      operationId: restoreMenuItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico a restaurar
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plato restaurado exitosamente en el catálogo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemDto'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
   /api/v1/kitchen/items/{id}/availability:
     patch:
       tags:
@@ -335,6 +500,78 @@ paths:
       responses:
         '200':
           description: Disponibilidad actualizada
+
+  /api/v1/admin/analytics/dashboard:
+    get:
+      tags:
+        - Admin - Analytics
+      summary: Obtener panel analítico e ingeniería de menú
+      description: >
+        Retorna las métricas analíticas del restaurante según la jerarquía establecida (ADR-0011):
+        Métricas de Nivel 1 (Tráfico de acceso QR día/mes, visualizaciones de platos, matriz de ingeniería
+        de menú y categorías más populares) y, condicionalmente para Plan Pro, métricas de Nivel 2
+        (distribución horaria de horas pico, RevPASH estimado y rotación de mesas).
+      operationId: getAnalyticsDashboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Fecha de inicio del intervalo de análisis (ISO-8601)
+          schema:
+            type: string
+            format: date
+            example: '2026-09-01'
+        - name: to
+          in: query
+          required: false
+          description: Fecha de fin del intervalo de análisis (ISO-8601)
+          schema:
+            type: string
+            format: date
+            example: '2026-09-30'
+      responses:
+        '200':
+          description: Datos analíticos recuperados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsDashboardResponse'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/analytics/collect:
+    post:
+      tags:
+        - Analytics - Ingestion
+      summary: Registrar evento analítico de navegación de cliente
+      description: >
+        Ingesta asíncrona desacoplada de eventos de interacción (escaneo de QR o visualización de plato)
+        desde la carta digital del comensal. Cumple con el presupuesto de rendimiento (< 2s LCP) y
+        políticas de privacidad sin recopilar PII.
+      operationId: collectAnalyticsEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsEventRequest'
+      responses:
+        '202':
+          description: Evento aceptado para procesamiento asíncrono
+        '400':
+          description: Evento o parámetros inválidos
 
   /healthz:
     get:
@@ -603,3 +840,236 @@ components:
         triggered_at:
           type: string
           format: date-time
+
+    MenuItemArchiveResponse:
+      type: object
+      required:
+        - item_id
+        - status
+        - message
+        - has_open_orders
+      properties:
+        item_id:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        status:
+          type: string
+          enum:
+            - archived
+          example: archived
+        message:
+          type: string
+          example: El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros.
+        has_open_orders:
+          type: boolean
+          example: false
+        archived_at:
+          type: string
+          format: date-time
+          example: 2026-09-20T14:30:00Z
+
+    AnalyticsEventRequest:
+      type: object
+      required:
+        - event_type
+        - tenant_slug
+      properties:
+        event_type:
+          type: string
+          enum: [menu_view, item_view, category_click]
+          example: item_view
+        tenant_slug:
+          type: string
+          example: el-gato-negro
+        item_id:
+          type: string
+          format: uuid
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        device_type:
+          type: string
+          enum: [mobile, desktop, tablet]
+          example: mobile
+
+    AnalyticsDashboardResponse:
+      type: object
+      required:
+        - tenant_id
+        - period_from
+        - period_to
+        - priority_high_metrics
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        period_from:
+          type: string
+          format: date
+        period_to:
+          type: string
+          format: date
+        priority_high_metrics:
+          type: object
+          description: Métricas de Tráfico e Ingeniería de Menú (Fase MVP)
+          required:
+            - total_qr_visits
+            - monthly_qr_visits
+            - top_viewed_items
+            - top_categories
+            - menu_engineering_matrix
+          properties:
+            total_qr_visits:
+              type: integer
+              example: 4520
+            monthly_qr_visits:
+              type: integer
+              example: 1240
+            top_viewed_items:
+              type: array
+              items:
+                type: object
+                properties:
+                  item_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                    example: Ojo de Bife
+                  views_count:
+                    type: integer
+                    example: 890
+            top_categories:
+              type: array
+              items:
+                type: object
+                properties:
+                  category_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                    example: Carnes
+                  interactions_count:
+                    type: integer
+                    example: 2150
+            menu_engineering_matrix:
+              type: object
+              description: Matriz de rentabilidad y popularidad (Ingeniería de Menú)
+              properties:
+                stars:
+                  type: array
+                  description: Alta popularidad y alto margen
+                  items:
+                    type: string
+                    format: uuid
+                plowhorses:
+                  type: array
+                  description: Alta popularidad y bajo margen
+                  items:
+                    type: string
+                    format: uuid
+                puzzles:
+                  type: array
+                  description: Baja popularidad y alto margen
+                  items:
+                    type: string
+                    format: uuid
+                dogs:
+                  type: array
+                  description: Baja popularidad y bajo margen
+                  items:
+                    type: string
+                    format: uuid
+        priority_medium_metrics:
+          type: object
+          nullable: true
+          description: >
+            Analítica de Rendimiento Temporal y Tráfico (Plan Pro). Excluye métricas de ocupación
+            o permanencia física por QR (ADR-0012).
+          properties:
+            peak_hours:
+              type: array
+              items:
+                type: object
+                properties:
+                  hour:
+                    type: integer
+                    example: 21
+                  visits_count:
+                    type: integer
+                    example: 340
+            device_breakdown:
+              type: object
+              properties:
+                mobile_percentage:
+                  type: number
+                  example: 92.5
+                desktop_percentage:
+                  type: number
+                  example: 7.5
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@restocore.com
+        password:
+          type: string
+          format: password
+          example: admin123
+
+    UserProfileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: dev-admin-marco
+        email:
+          type: string
+          format: email
+          example: admin@bistrogourmet.com
+        name:
+          type: string
+          example: Chef Marco
+        role:
+          type: string
+          example: owner
+        tenantId:
+          type: string
+          nullable: true
+          example: 11111111-1111-1111-1111-111111111111
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["owner", "tenant_admin", "kitchen_staff"]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Token JWT portador firmado
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        tenantId:
+          type: string
+          nullable: true
+          example: 11111111-1111-1111-1111-111111111111
+        tenantSlug:
+          type: string
+          nullable: true
+          example: el-gato-negro
+        user:
+          $ref: '#/components/schemas/UserProfileResponse'
+
+
+

@@ -13,6 +13,14 @@ test_public_menu_allowed {
     }
 }
 
+# Test 1.1: El cliente público puede enviar eventos analíticos anónimos
+test_public_analytics_collect_allowed {
+    allow with input as {
+        "method": "POST",
+        "path": ["api", "v1", "analytics", "collect"]
+    }
+}
+
 # Test 2: El cliente público NO puede leer métricas de administración
 test_public_metrics_denied {
     not allow with input as {
@@ -49,6 +57,36 @@ test_owner_publish_menu_allowed {
         "resource": {"tenant_id": "tenant_123"},
         "action": "publish_menu",
         "method": "POST"
+    }
+}
+
+# Test 3.3: El dueño del local puede archivar un plato gastronómico (Baja Suave)
+test_owner_archive_dish_allowed {
+    allow with input as {
+        "user": {"roles": ["owner"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "archive_dish",
+        "method": "DELETE"
+    }
+}
+
+# Test 3.4: El dueño del local puede restaurar un plato previamente archivado
+test_owner_restore_dish_allowed {
+    allow with input as {
+        "user": {"roles": ["owner"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "restore_dish",
+        "method": "POST"
+    }
+}
+
+# Test 3.5: El cocinero NO puede archivar platos de la carta
+test_cook_archive_dish_denied {
+    not allow with input as {
+        "user": {"roles": ["cook"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "archive_dish",
+        "method": "DELETE"
     }
 }
 
