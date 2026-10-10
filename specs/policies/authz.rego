@@ -38,6 +38,8 @@ allow {
         "manage_menu",
         "manage_categories",
         "manage_dishes",
+        "archive_dish",
+        "restore_dish",
         "manage_prices",
         "manage_branding",
         "manage_layout",

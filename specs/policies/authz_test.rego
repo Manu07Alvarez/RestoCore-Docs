@@ -52,6 +52,36 @@ test_owner_publish_menu_allowed {
     }
 }
 
+# Test 3.3: El dueño del local puede archivar un plato gastronómico (Baja Suave)
+test_owner_archive_dish_allowed {
+    allow with input as {
+        "user": {"roles": ["owner"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "archive_dish",
+        "method": "DELETE"
+    }
+}
+
+# Test 3.4: El dueño del local puede restaurar un plato previamente archivado
+test_owner_restore_dish_allowed {
+    allow with input as {
+        "user": {"roles": ["owner"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "restore_dish",
+        "method": "POST"
+    }
+}
+
+# Test 3.5: El cocinero NO puede archivar platos de la carta
+test_cook_archive_dish_denied {
+    not allow with input as {
+        "user": {"roles": ["cook"], "tenant_id": "tenant_123"},
+        "resource": {"tenant_id": "tenant_123"},
+        "action": "archive_dish",
+        "method": "DELETE"
+    }
+}
+
 # Test 4: El dueño NO puede modificar el menú de OTRO Tenant (Multi-Tenant Isolation)
 test_owner_other_tenant_denied {
     not allow with input as {
