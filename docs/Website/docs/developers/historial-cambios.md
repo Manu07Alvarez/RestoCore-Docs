@@ -4,6 +4,17 @@ Este documento refleja en orden cronológico la actividad del repositorio, los P
 
 ---
 
+## Hito: Jerarquía de Métricas Analíticas y Telemetría de Menú (ADR-0011)
+* **Fecha:** 21 de Septiembre de 2026
+* **Resumen:** Estructuración y formalización de la jerarquía analítica por fases de negocio y modelo de telemetría:
+  * **Decisión de Arquitectura (ADR-0011):** Adopción de un esquema en tres niveles de prioridad para evitar acoplamientos prematuros y salvaguardar el presupuesto de latencia de la carta QR (< 2s LCP).
+  * **Nivel 1 - Prioridad Alta (Fase MVP / Tráfico e Ingeniería de Menú):** Conteo agregado de aperturas de QR (día/mes), popularidad de platos, categorías más interactivas y Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles y Perros) combinando interacción con márgenes de contribución.
+  * **Nivel 2 - Prioridad Media (Plan Pro):** Distribución horaria de horas pico, RevPASH (Revenue Per Available Seat-Hour), rotación y permanencia en mesas, y desglose de dispositivos.
+  * **Nivel 3 - Prioridad Baja (Fases Avanzadas):** Costo Primo (COGS + Nómina), varianza teórico-real de alimentos, tiempos de comanda en cocina (KDS) y rotación de inventarios.
+  * **Especificación y Contratos:** Endpoints `POST /api/v1/analytics/collect` y `GET /api/v1/admin/analytics/dashboard` documentados en OpenAPI 3.1, cláusulas de comportamiento formal EARS (`[EARS-METRIC-001]` a `[EARS-METRIC-010]`) y políticas OPA de acceso público e ingesta anónima sin PII.
+
+---
+
 ## Hito: Baja Suave de Platos (Soft Delete) y Snapshots Inmutables en Comandas (ADR-0010)
 * **Fecha:** 20 de Septiembre de 2026
 * **Resumen:** Definición y formalización del ciclo de vida seguro de platos y preservación contable histórica:

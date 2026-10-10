@@ -31,6 +31,10 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
    * `PATCH /api/v1/kitchen/items/{id}/availability`: Pausa y reanudación inmediata de disponibilidad de stock desde la cocina.
    * `GET /healthz` & `GET /ready`: Monitoreo de vitalidad y verificación concurrente de dependencias externas (PostgreSQL, Redis, SeaweedFS, OPA).
 
+6. **Analítica de Menú e Ingesta de Telemetría (ADR-0011):**
+   * `POST /api/v1/analytics/collect`: Ingesta anónima y asíncrona de eventos de navegación de comensales (apertura de carta, visualización de plato o interacción con categorías) sin afectar el presupuesto LCP (< 2s).
+   * `GET /api/v1/admin/analytics/dashboard`: Consulta protegida (`owner` / `tenant_admin`) de la jerarquía analítica: Tráfico QR (visitas día/mes), platos más vistos, Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles, Perros) y categorías principales, con desglose de Plan Pro (horas pico, RevPASH estimado y rotación de mesas).
+
 ---
 
 ## Seguridad Declarativa OPA / Rego (`specs/policies/authz.rego`)

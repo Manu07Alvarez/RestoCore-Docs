@@ -28,8 +28,15 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **Bloqueo Operativo con Explicación No Técnica ante Pedidos Activos:** Validación que impide archivar un plato si existen comandas activas o en preparación en cocina, respondiendo con HTTP 409 Conflict y un mensaje comprensible, empático y libre de tecnicismos.
 * **Confirmación Amigable de Retiro Exitoso:** Respuesta informativa al usuario administrador que clarifica de forma simple que el plato ya no es visible para los clientes pero que todo el historial de ventas permanece seguro e intacto.
 * **Restauración de Platos:** Reincorporación inmediata de platos archivados (`POST /api/v1/admin/items/{id}/restore`) al menú público.
+* **Telemetría y Métricas Analíticas - Prioridad Alta (Fase MVP):** Ingesta asíncrona de eventos de navegación sin impacto en latencia:
+  * Tráfico de acceso QR y visitas agregadas (día / mes).
+  * Platos más vistos y popularidad de productos.
+  * Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles y Perros) combinando popularidad con márgenes de contribución.
+  * Categorías más populares e interactivas.
 
 ### Funcionalidades Excluidas (Out-of-Scope - MVP)
+* **Métricas de Prioridad Media (Plan Pro - Fases Posteriores):** Curva de horas pico en salón, cálculo de RevPASH (Revenue Per Available Seat-Hour) y rotación de mesas (diferido a módulos de gestión de sala).
+* **Métricas de Prioridad Baja (Fases Avanzadas - Integraciones Externas):** Costo Primo (Prime Cost), Varianza de costo teórico vs. real de alimentos, y tiempos de comanda en cocina (requieren integración con POS, RMS, inventarios y nóminas).
 * **Baja Física Permanente de Platos (Hard Delete):** Queda estrictamente excluida la eliminación física destructiva (`DELETE` relacional) de platos en la base de datos de producción para evitar inconsistencias referenciales e históricas (ADR-0010).
 * **Animaciones Complejas en Video o 3D:** Renderizado de elementos tridimensionales interactivos o fondos animados en video de alto peso.
 * **Edición Directa de Código CSS/HTML:** Inyección de estilos libres o scripts por parte de los usuarios administradores.
@@ -41,6 +48,7 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 
 ## 3. Restricciones y Asunciones
 * **Presupuesto de Latencia y Rendimiento de Entrega (< 2s LCP):** La entrega del artefacto estático compilado desde la CDN perimetral al comensal no debe superar los 2 segundos de tiempo total de respuesta (< 2.0s LCP) bajo redes móviles 3G/4G/5G, tanto en la plantilla estándar como en la maquetación de lienzo Canvas.
+* **Captura Analítica Asíncrona Desacoplada:** El envío de telemetría de navegación y visualización de platos debe ejecutarse mediante `navigator.sendBeacon` o peticiones `POST` en segundo plano sin bloquear el hilo principal ni degradar el LCP del comensal.
 * **Restricción de Rendimiento de Compilación AOT (< 3s Pipeline):** El pipeline de compilación Ahead-Of-Time (AOT) en el backend debe completarse en menos de 3 segundos tras la confirmación de publicación (`POST /api/v1/admin/menu/publish`) desde el panel administrativo.
 * **Gestión de Activos y Variantes Adaptativas:** Todas las imágenes del lienzo (fondos y platos) deben ser procesadas y entregadas mediante variantes adaptativas (`srcset`) optimizadas para pantallas móviles en formatos modernos WebP y AVIF a partir de los originales almacenados en SeaweedFS.
 * **Almacenamiento y Caché Perimetral (CDN):** El menú público se sirve a través de la red perimetral (`ADR-0005` y `ADR-0006`) con cabeceras de caché HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`). El backend emite una orden de purgado de caché inmediata al publicar cambios.
@@ -65,6 +73,7 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **ADR-0007:** Procesamiento de pedidos con cola FIFO y eventos WebSockets en tiempo real.
 * **ADR-0008:** Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).
 * **ADR-0010:** Baja Suave (Soft Delete) de Platos del Menú, Snapshots Inmutables en Comandas y Explicaciones Claras al Usuario.
+* **ADR-0011:** Jerarquía de Métricas Analíticas por Fases y Modelo de Telemetría de Menú.
 
 ---
 

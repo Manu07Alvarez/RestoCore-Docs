@@ -13,6 +13,14 @@ test_public_menu_allowed {
     }
 }
 
+# Test 1.1: El cliente público puede enviar eventos analíticos anónimos
+test_public_analytics_collect_allowed {
+    allow with input as {
+        "method": "POST",
+        "path": ["api", "v1", "analytics", "collect"]
+    }
+}
+
 # Test 2: El cliente público NO puede leer métricas de administración
 test_public_metrics_denied {
     not allow with input as {

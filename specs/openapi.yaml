@@ -438,6 +438,78 @@ paths:
         '200':
           description: Disponibilidad actualizada
 
+  /api/v1/admin/analytics/dashboard:
+    get:
+      tags:
+        - Admin - Analytics
+      summary: Obtener panel analítico e ingeniería de menú
+      description: >
+        Retorna las métricas analíticas del restaurante según la jerarquía establecida (ADR-0011):
+        Métricas de Nivel 1 (Tráfico de acceso QR día/mes, visualizaciones de platos, matriz de ingeniería
+        de menú y categorías más populares) y, condicionalmente para Plan Pro, métricas de Nivel 2
+        (distribución horaria de horas pico, RevPASH estimado y rotación de mesas).
+      operationId: getAnalyticsDashboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Fecha de inicio del intervalo de análisis (ISO-8601)
+          schema:
+            type: string
+            format: date
+            example: '2026-09-01'
+        - name: to
+          in: query
+          required: false
+          description: Fecha de fin del intervalo de análisis (ISO-8601)
+          schema:
+            type: string
+            format: date
+            example: '2026-09-30'
+      responses:
+        '200':
+          description: Datos analíticos recuperados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsDashboardResponse'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/analytics/collect:
+    post:
+      tags:
+        - Analytics - Ingestion
+      summary: Registrar evento analítico de navegación de cliente
+      description: >
+        Ingesta asíncrona desacoplada de eventos de interacción (escaneo de QR o visualización de plato)
+        desde la carta digital del comensal. Cumple con el presupuesto de rendimiento (< 2s LCP) y
+        políticas de privacidad sin recopilar PII.
+      operationId: collectAnalyticsEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsEventRequest'
+      responses:
+        '202':
+          description: Evento aceptado para procesamiento asíncrono
+        '400':
+          description: Evento o parámetros inválidos
+
   /healthz:
     get:
       tags:
@@ -733,4 +805,154 @@ components:
           type: string
           format: date-time
           example: 2026-09-20T14:30:00Z
+
+    AnalyticsEventRequest:
+      type: object
+      required:
+        - event_type
+        - tenant_slug
+      properties:
+        event_type:
+          type: string
+          enum: [menu_view, item_view, category_click]
+          example: item_view
+        tenant_slug:
+          type: string
+          example: el-gato-negro
+        item_id:
+          type: string
+          format: uuid
+          nullable: true
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        device_type:
+          type: string
+          enum: [mobile, desktop, tablet]
+          example: mobile
+
+    AnalyticsDashboardResponse:
+      type: object
+      required:
+        - tenant_id
+        - period_from
+        - period_to
+        - priority_high_metrics
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        period_from:
+          type: string
+          format: date
+        period_to:
+          type: string
+          format: date
+        priority_high_metrics:
+          type: object
+          description: Métricas de Tráfico e Ingeniería de Menú (Fase MVP)
+          required:
+            - total_qr_visits
+            - monthly_qr_visits
+            - top_viewed_items
+            - top_categories
+            - menu_engineering_matrix
+          properties:
+            total_qr_visits:
+              type: integer
+              example: 4520
+            monthly_qr_visits:
+              type: integer
+              example: 1240
+            top_viewed_items:
+              type: array
+              items:
+                type: object
+                properties:
+                  item_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                    example: Ojo de Bife
+                  views_count:
+                    type: integer
+                    example: 890
+            top_categories:
+              type: array
+              items:
+                type: object
+                properties:
+                  category_id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                    example: Carnes
+                  interactions_count:
+                    type: integer
+                    example: 2150
+            menu_engineering_matrix:
+              type: object
+              description: Matriz de rentabilidad y popularidad (Ingeniería de Menú)
+              properties:
+                stars:
+                  type: array
+                  description: Alta popularidad y alto margen
+                  items:
+                    type: string
+                    format: uuid
+                plowhorses:
+                  type: array
+                  description: Alta popularidad y bajo margen
+                  items:
+                    type: string
+                    format: uuid
+                puzzles:
+                  type: array
+                  description: Baja popularidad y alto margen
+                  items:
+                    type: string
+                    format: uuid
+                dogs:
+                  type: array
+                  description: Baja popularidad y bajo margen
+                  items:
+                    type: string
+                    format: uuid
+        priority_medium_metrics:
+          type: object
+          nullable: true
+          description: Analítica de Rendimiento Temporal y Sala (Plan Pro)
+          properties:
+            peak_hours:
+              type: array
+              items:
+                type: object
+                properties:
+                  hour:
+                    type: integer
+                    example: 21
+                  visits_count:
+                    type: integer
+                    example: 340
+            revpash_estimate:
+              type: number
+              format: double
+              example: 1850.50
+            table_turnover_rate:
+              type: number
+              format: double
+              example: 2.8
+            device_breakdown:
+              type: object
+              properties:
+                mobile_percentage:
+                  type: number
+                  example: 92.5
+                desktop_percentage:
+                  type: number
+                  example: 7.5
+
 

@@ -80,7 +80,37 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ---
 
-## 5. Matriz de Trazabilidad EARS
+## 5. Requisitos de Jerarquía de Métricas Analíticas y Telemetría de Menú
+
+### 5.1. Prioridad Alta (Fase MVP / Tráfico e Ingeniería de Menú)
+* **[EARS-METRIC-001] (Event-Driven):**
+  CUANDO un comensal acceda a la carta pública mediante escaneo QR (`GET /api/v1/tenants/{slug}/menu`), el sistema DEBERÁ registrar de forma asíncrona un evento de visita agregable por día y mes sin penalizar el presupuesto de latencia (< 2s LCP).
+* **[EARS-METRIC-002] (Event-Driven):**
+  CUANDO un comensal visualice el detalle de un plato o abra su modal de modificadores en la carta digital, el sistema DEBERÁ registrar un evento de visualización de plato vinculado al identificador del ítem.
+* **[EARS-METRIC-003] (Ubiquitous):**
+  El sistema DEBERÁ consolidar la Matriz de Ingeniería de Menú en el panel administrativo clasificando cada plato según su volumen de visualizaciones y su margen de contribución en cuatro cuadrantes: Estrellas, Caballos de Batalla, Puzzles y Perros.
+* **[EARS-METRIC-004] (Ubiquitous):**
+  El sistema DEBERÁ computar y clasificar las categorías del menú ordenadas por volumen total de visualizaciones e interacciones de comensales.
+
+### 5.2. Prioridad Media (Plan Pro / Rendimiento Temporal y Sala)
+* **[EARS-METRIC-005] (State-Driven):**
+  MIENTRAS el tenant cuente con suscripción Plan Pro activa, el sistema DEBERÁ generar la curva de distribución horaria de visitas identificando las horas pico de afluencia del establecimiento.
+* **[EARS-METRIC-006] (State-Driven):**
+  MIENTRAS se registren aperturas de mesas y facturación de comandas, el sistema DEBERÁ calcular el indicador RevPASH (ingreso por asiento y hora disponible) y la duración promedio del ciclo de servicio por mesa.
+* **[EARS-METRIC-007] (Ubiquitous):**
+  El sistema DEBERÁ segmentar las métricas de navegación por tipo de dispositivo (móvil vs. escritorio) sin almacenar información personal identificable (PII).
+
+### 5.3. Prioridad Baja (Fases Avanzadas / Integraciones Financieras y Operativas)
+* **[EARS-METRIC-008] (Optional Features):**
+  DONDE existan módulos integrados de inventario y nómina laboral, el sistema DEBERÁ calcular el Costo Primo (Prime Cost) consolidando el costo de bienes vendidos (COGS) y el costo laboral total.
+* **[EARS-METRIC-009] (Optional Features):**
+  DONDE el módulo de recetas técnicas esté habilitado, el sistema DEBERÁ reportar la varianza de costo de alimentos comparando el consumo teórico contra el consumo real de inventario.
+* **[EARS-METRIC-010] (Optional Features):**
+  DONDE el Kitchen Display System (KDS) esté conectado, el sistema DEBERÁ auditar el tiempo promedio de comanda en cocina (Kitchen Ticket Time) por turno y franja horaria.
+
+---
+
+## 6. Matriz de Trazabilidad EARS
 
 | Identificador | Tipo EARS | Entidad / Componente | Verificación Automatizada |
 | :--- | :--- | :--- | :--- |
@@ -95,3 +125,8 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-DISH-002** | Ubiquitous | Orders / OrderItems Entity | Test de persistencia de snapshots inmutables |
 | **EARS-DISH-004** | Unwanted Behavior | Kitchen KDS / Orders Guard | Test de rechazo 409 con pedidos en cocina |
 | **EARS-DISH-005** | Event-Driven | Catalog / Restore Endpoint | Test de reactivación `POST /items/{id}/restore` |
+| **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
+| **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
+| **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |
+| **EARS-METRIC-006**| State-Driven | Analytics / RevPASH & Tables | Test de agregación de ingresos por asiento/hora |
+| **EARS-METRIC-008**| Optional Features| Analytics / Prime Cost Engine | Test condicional de agregación COGS + Nómina |
