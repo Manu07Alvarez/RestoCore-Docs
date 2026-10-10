@@ -20,9 +20,11 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
 3. **Carga Asíncrona de Imágenes y Fondos (SeaweedFS):**
    * `POST /api/v1/storage/presigned-upload` (y alias `/api/v1/media/presigned-url`): Emisión de URLs temporales pre-firmadas para transmitir fotografías de platos y fondos de lienzo directamente a SeaweedFS sin saturar el servidor de API (`ADR-0004`).
 
-4. **Administración CRUD de Catálogo y Mesas (Protegido `owner` / `tenant_admin`):**
+4. **Administración CRUD de Catálogo, Ciclo de Vida y Mesas (Protegido `owner` / `tenant_admin`):**
    * `POST /api/v1/admin/categories`: Creación y reordenamiento de categorías.
    * `POST /api/v1/admin/items`: Creación y edición de platos, modificadores y precios con soporte JSONB.
+   * `DELETE /api/v1/admin/items/{id}`: Baja suave de platos (`IsDeleted = true`, `DeletedAtUtc = now`) respaldada por snapshots inmutables en `OrderItem` (`ADR-0010`). Retorna `200 OK` con `MenuItemArchiveResponse` conteniendo una confirmación amigable ("El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros."). Si existen órdenes abiertas o en preparación en cocina, bloquea con `409 Conflict` y advertencia no técnica.
+   * `POST /api/v1/admin/items/{id}/restore`: Reincorporación inmediata de un plato archivado a la carta digital.
    * `GET /api/v1/admin/tables/{id}/qr`: Descarga de código QR dinámico para mesas físicas en formato vectorial (SVG) o binario (PNG).
 
 5. **Comandas de Cocina y Salón (Protegido `cook` / `waiter`):**
@@ -37,10 +39,10 @@ Las políticas de autorización están desacopladas del backend y se especifican
 
 ### Matriz de Jerarquía de Roles y Visión Limitada
 
-| Rol / Actor | Lectura Pública Menú | CRUD Catálogo & Precios | Gestión Branding & QR | Gestión Lienzo (Canvas) | Publicar Menú & AOT | Ver KDS / Comandas | Cambiar Stock Cocina |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Cliente Anónimo** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado |
-| **Dueño (`owner`)** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |
-| **Cocinero (`cook`)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Autorizado | Autorizado |
-| **Mozo (`waiter`)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Autorizado | Denegado |
-| **SuperAdmin** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |
+| Rol / Actor | Lectura Pública Menú | CRUD Catálogo & Precios | Archivar / Restaurar Platos | Gestión Branding & QR | Gestión Lienzo (Canvas) | Publicar Menú & AOT | Ver KDS / Comandas | Cambiar Stock Cocina |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Cliente Anónimo** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado |
+| **Dueño (`owner`)** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |
+| **Cocinero (`cook`)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Autorizado | Autorizado |
+| **Mozo (`waiter`)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Autorizado | Denegado |
+| **SuperAdmin** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |

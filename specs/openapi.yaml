@@ -306,6 +306,108 @@ paths:
         '201':
           description: Plato creado exitosamente
 
+  /api/v1/admin/items/{id}:
+    delete:
+      tags:
+        - Admin - Catalog
+      summary: Baja suave de plato gastronómico (Archivado de carta)
+      description: >
+        Ejecuta la baja suave (`IsDeleted = true`, `DeletedAtUtc = now`) del plato en el catálogo
+        del restaurante (ADR-0010). Verifica que el plato no se encuentre en pedidos abiertos o
+        en preparación en cocina (KDS). Si tiene pedidos activos en cocina, bloquea la acción
+        retornando HTTP 409 Conflict con una advertencia humana comprensible. Si la baja suave
+        se ejecuta con éxito, preserva la integridad contable e histórica en `OrderItem` mediante
+        snapshots inmutables y desvinculación a clave foránea nulable, retornando una confirmación
+        amigable y no técnica para el usuario.
+      operationId: deleteMenuItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plato retirado exitosamente de la carta con confirmación amigable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemArchiveResponse'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Bloqueo de retiro por pedidos activos o en preparación en cocina
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/items/{id}/restore:
+    post:
+      tags:
+        - Admin - Catalog
+      summary: Restaurar plato gastronómico previamente retirado
+      description: >
+        Revierte la baja suave de un plato (`IsDeleted = false`, `DeletedAtUtc = null`) en el catálogo
+        del restaurante (ADR-0010), reincorporándolo inmediatamente a la visualización de la carta
+        digital para los clientes.
+      operationId: restoreMenuItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico a restaurar
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plato restaurado exitosamente en el catálogo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemDto'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
   /api/v1/kitchen/items/{id}/availability:
     patch:
       tags:
@@ -603,3 +705,32 @@ components:
         triggered_at:
           type: string
           format: date-time
+
+    MenuItemArchiveResponse:
+      type: object
+      required:
+        - item_id
+        - status
+        - message
+        - has_open_orders
+      properties:
+        item_id:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        status:
+          type: string
+          enum:
+            - archived
+          example: archived
+        message:
+          type: string
+          example: El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros.
+        has_open_orders:
+          type: boolean
+          example: false
+        archived_at:
+          type: string
+          format: date-time
+          example: 2026-09-20T14:30:00Z
+

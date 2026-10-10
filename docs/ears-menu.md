@@ -62,7 +62,25 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ---
 
-## 4. Matriz de Trazabilidad EARS
+## 4. Requisitos de Ciclo de Vida y Baja Suave de Platos (Soft Delete)
+
+### 4.1. Retiro de Platos y Preservación Histórica
+* **[EARS-DISH-001] (Event-Driven):**
+  CUANDO el administrador solicite archivar un plato (`DELETE /api/v1/admin/items/{id}`) y no existan pedidos activos asociados en cocina, el sistema DEBERÁ marcar la entidad como archivada (`IsDeleted = true`), registrar la fecha de baja (`DeletedAtUtc`), invalidar la caché del menú y responder con una confirmación no técnica indicando que el plato se retiró de la carta y que el historial de ventas permanece intacto.
+* **[EARS-DISH-002] (Ubiquitous):**
+  El sistema DEBERÁ registrar snapshots inmutables (`ItemNameSnapshot`, `UnitPriceSnapshot`, `AppliedModifiersJson`) en cada línea de pedido (`OrderItem`), garantizando que los comprobantes y reportes contables históricos permanezcan inalterables independientemente de la baja suave del plato.
+* **[EARS-DISH-003] (State-Driven):**
+  MIENTRAS un plato se encuentre en estado archivado (`IsDeleted == true`), el sistema DEBERÁ excluirlo automáticamente de las consultas de la carta pública y del catálogo de pedidos activos mediante filtros de consulta globales (*Global Query Filters*).
+
+### 4.2. Bloqueo de Seguridad Operacional y Restauración
+* **[EARS-DISH-004] (Unwanted Behavior):**
+  SI el plato solicitado para baja se encuentra incluido en comandas activas en salón o cocina (`Pending`, `InPreparation`, `Ready`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict y proveer una advertencia no técnica informando que no es posible retirar el plato mientras existan pedidos en preparación.
+* **[EARS-DISH-005] (Event-Driven):**
+  CUANDO el administrador ejecute la restauración de un plato archivado (`POST /api/v1/admin/items/{id}/restore`), el sistema DEBERÁ restablecer el estado activo (`IsDeleted = false`), invalidar la caché perimetral del tenant y habilitar su visualización inmediata en la carta digital.
+
+---
+
+## 5. Matriz de Trazabilidad EARS
 
 | Identificador | Tipo EARS | Entidad / Componente | Verificación Automatizada |
 | :--- | :--- | :--- | :--- |
@@ -73,3 +91,7 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-AOT-001** | Event-Driven | AOT Pipeline / Backend | Test de integración `POST /publish` y purgado |
 | **EARS-AOT-003** | State-Driven | CDN Edge / Cloudflare | Test de respuesta HTTP con cabeceras de caché |
 | **EARS-AOT-004** | Unwanted Behavior | AOT Pipeline / CMS | Test de resiliencia y retención de versión previa |
+| **EARS-DISH-001** | Event-Driven | Catalog / Admin Service | Test de endpoint `DELETE /items/{id}` y respuesta amigable |
+| **EARS-DISH-002** | Ubiquitous | Orders / OrderItems Entity | Test de persistencia de snapshots inmutables |
+| **EARS-DISH-004** | Unwanted Behavior | Kitchen KDS / Orders Guard | Test de rechazo 409 con pedidos en cocina |
+| **EARS-DISH-005** | Event-Driven | Catalog / Restore Endpoint | Test de reactivación `POST /items/{id}/restore` |

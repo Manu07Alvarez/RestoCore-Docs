@@ -4,6 +4,16 @@ Este documento refleja en orden cronológico la actividad del repositorio, los P
 
 ---
 
+## Hito: Baja Suave de Platos (Soft Delete) y Snapshots Inmutables en Comandas (ADR-0010)
+* **Fecha:** 20 de Septiembre de 2026
+* **Resumen:** Definición y formalización del ciclo de vida seguro de platos y preservación contable histórica:
+  * **Decisión de Arquitectura (ADR-0010):** Adopción exclusiva del patrón de baja suave (`IsDeleted = true`, `DeletedAtUtc = now`) mediante Global Query Filters en EF Core, descartando la baja física destructiva para proteger la integridad referencial y las transacciones de ventas pasadas.
+  * **Snapshots Inmutables en Comandas:** Desacoplamiento de `OrderItem` frente a modificaciones o retiro de platos mediante clave foránea nulable (`MenuItemId: Guid?` con `ON DELETE SET NULL`) y captura inmutable de campos congelados (`ItemNameSnapshot`, `UnitPriceSnapshot` y `AppliedModifiersJson`).
+  * **Experiencia de Usuario No Técnica:** Confirmación amigable al usuario administrador clarificando que el plato ya no es visible para comensales mientras sus reportes pasados permanecen intactos. Bloqueo automático con HTTP 409 Conflict y mensaje claro si el plato tiene comandas abiertas o en preparación en cocina (KDS).
+  * **Especificación y Contratos:** Endpoints `DELETE /api/v1/admin/items/{id}` y `POST /api/v1/admin/items/{id}/restore` documentados en OpenAPI 3.1, cláusulas de comportamiento formal EARS (`[EARS-DISH-001]` a `[EARS-DISH-005]`) y reglas de autorización OPA (`archive_dish`, `restore_dish`).
+
+---
+
 ## Hito: Modo Lienzo (Canvas Layout) y Compilación Ahead-Of-Time (Feature 005 en `resto-core-back`)
 * **Fecha:** 19 de Septiembre de 2026
 * **Commit:** `783e3d5` en `resto-core-back`

@@ -44,7 +44,8 @@ Contiene las entidades del negocio, invariantes y reglas de dominio puras sin de
 * **`CanvasElement` (Value Object):** Representa la posición geométrica y capa de un plato o elemento en el lienzo: identificador de plato (`ItemId`), coordenadas relativas (`PosX`, `PosY` entre 0 y 100), dimensiones relativas (`Width`, `Height`), índice de profundidad (`ZIndex`) y estilos adicionales (`CustomStyles`).
 * **`MenuPublishJob`:** Entidad de dominio (`ITenantScopedEntity`) que registra y audita las ejecuciones del pipeline asíncrono de compilación Ahead-Of-Time (AOT): identificador único (`Id`), tenant asociado (`TenantId`), estado del trabajo (`Status`: Queued, Processing, Completed, Failed), hash criptográfico generado (`VersionHash`), cantidad de activos procesados (`AssetsProcessed`), duración total en milisegundos (`DurationMs`), mensaje de error (`ErrorMessage`), fecha de inicio (`CreatedAtUtc`) y fecha de finalización (`CompletedAtUtc`).
 * **`Category`:** Clasificador de productos en la carta (`ITenantScopedEntity`). Soporta ordenamiento posicional (`SortOrder`) y control de visibilidad (`IsVisible`).
-* **`MenuItem`:** Plato o producto comercializable (`ITenantScopedEntity`). Almacena nombre, descripción, precio, imagen, estado de disponibilidad (`IsAvailable`) y etiquetas dietarias (`DietaryTags`) persistidas como colecciones `JSONB`.
+* **`MenuItem`:** Plato o producto comercializable (`ITenantScopedEntity`). Almacena nombre, descripción, precio, imagen, estado de disponibilidad (`IsAvailable`), etiquetas dietarias (`DietaryTags`) persistidas como colecciones `JSONB`, y banderas de ciclo de vida para baja suave (`IsDeleted: bool`, `DeletedAtUtc: DateTimeOffset?`) (`ADR-0010`).
+* **`OrderItem`:** Línea de comanda o pedido histórico. Desacoplada de mutaciones de catálogo mediante clave foránea nulable (`MenuItemId: Guid?` con regla `ON DELETE SET NULL`) y snapshots inmutables: `ItemNameSnapshot: string`, `UnitPriceSnapshot: decimal` y `AppliedModifiersJson: string` (`ADR-0010`).
 * **`ModifierGroup` & `ModifierOption`:** Agrupadores de adicionales y modificaciones con reglas de selección mínima y máxima (`MinSelection`, `MaxSelection`) y deltas de precio (`PriceDelta`).
 * **`Table`:** Identificador de mesa física en el salón. Contiene número de mesa, sector/zona, token de seguridad criptográfico (`TableToken`) y estado activo.
 * **`ITenantScopedEntity`:** Interfaz contractual que garantiza que toda entidad de negocio contenga un `TenantId: Guid` para el particionamiento multi-tenant obligatorio.
@@ -60,7 +61,7 @@ Implementa los casos de uso del sistema organizados por características funcion
   * **`PublishMenuCommand`:** Registra un `MenuPublishJob`, inicia el pipeline asíncrono de compilación AOT mediante `IMenuCompilationService`, desencadena la invalidación perimetral a través de `ICdnPurgeService` y retorna HTTP 202 Accepted.
 * **`Features/Storage`:** Comando `GeneratePresignedUploadCommand` para la emisión de URLs pre-firmadas hacia SeaweedFS, con validación de extensiones permitidas (`.jpg`, `.jpeg`, `.png`, `.webp`) y límite de tamaño de 5 MB.
 * **`Features/Categories`:** Comandos para alta (`CreateCategoryCommand`) y ordenamiento de categorías con validaciones de unicidad de nombre por tenant.
-* **`Features/MenuItems`:** Comandos de creación de platos (`CreateMenuItemCommand`) y asignación de grupos de modificadores (`ManageModifiersCommand`).
+* **`Features/MenuItems`:** Comandos de creación de platos (`CreateMenuItemCommand`), asignación de grupos de modificadores (`ManageModifiersCommand`), baja suave con verificación de ausencia de comandas activas en cocina (`SoftDeleteMenuItemCommand` retornando confirmación no técnica amigable) y restauración (`RestoreMenuItemCommand`) (`ADR-0010`).
 * **`Features/Kitchen`:** Comandos operativos inmediatos como la alternancia de disponibilidad de stock (`ToggleItemAvailabilityCommand`).
 * **`Features/QrCodes`:** Consulta y renderizado dinámico de códigos QR para mesas físicas (`GetTableQrQuery`).
 * **`Features/Tenants`:** Aprovisionamiento de nuevas cuentas (`ProvisionTenantCommand`) y personalización de marca (`UpdateBrandingCommand`).
@@ -101,6 +102,8 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Almacenamiento** | `POST` | `/api/v1/storage/presigned-upload` | `TenantAdminOnly` | 200, 400, 401, 403 | Genera URL pre-firmada temporal hacia SeaweedFS (`ADR-0004`). |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/categories` | `TenantAdminOnly` | 201, 400, 401, 403 | Alta de categorías para el Tenant activo. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items` | `TenantAdminOnly` | 201, 400, 401, 403 | Alta de platos con etiquetas dietarias JSONB. |
+| **Catálogo Admin** | `DELETE`| `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 401, 403, 404, 409 | Baja suave (`IsDeleted = true`) con validación de pedidos en cocina y mensaje amigable (`ADR-0010`). |
+| **Catálogo Admin** | `POST` | `/api/v1/admin/items/{id}/restore` | `TenantAdminOnly` | 200, 401, 403, 404 | Restauración de plato previamente retirado (`ADR-0010`). |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items/{id}/modifiers` | `TenantAdminOnly` | 201, 400, 401, 403 | Agregado de modificadores y opciones de precio. |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/branding` | `TenantAdminOnly` | 200, 401, 403 | Actualización de identidad visual y colores. |
 | **Mesas & QR** | `GET` | `/api/v1/admin/tables/{id}/qr` | `TenantAdminOnly` | 200, 401, 403, 404 | Descarga del código QR en formato SVG o PNG. |
