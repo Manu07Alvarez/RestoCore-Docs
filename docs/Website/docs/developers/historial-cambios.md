@@ -4,6 +4,15 @@ Este documento refleja en orden cronológico la actividad del repositorio, los P
 
 ---
 
+## Hito: Postergación del Seguimiento de Ocupación por QR y Visión de Módulo Waitlist (ADR-0012)
+* **Fecha:** 22 de Septiembre de 2026
+* **Resumen:** Formalización de exclusión técnica y visión de expansión de salón:
+  * **Decisión de Arquitectura (ADR-0012 - Pospuesto):** Se descarta medir ocupación real y tiempo de estancia vía lecturas de código QR de mesa, constatando la falta de correlación directa entre escaneos y personas físicas y evitando ventanas de expiración (TTL) imprecisas en la base de datos.
+  * **Visión de Módulo de Turnos y Recepción (Waitlist/Turnos):** Las métricas fidedignas de permanencia, rotación de mesas y cálculo estricto de RevPASH se delegan a un futuro módulo con registro verificado de comensales sentados y marcas de tiempo físicas.
+  * **Ajuste en Especificaciones:** Pausado formal del requerimiento `[EARS-METRIC-006]`, preservación de `table_token` como parámetro puramente contextual en OpenAPI 3.1 y exclusión de contadores de presencia de mesa en el dashboard analítico de Plan Pro.
+
+---
+
 ## Hito: Jerarquía de Métricas Analíticas y Telemetría de Menú (ADR-0011)
 * **Fecha:** 21 de Septiembre de 2026
 * **Resumen:** Estructuración y formalización de la jerarquía analítica por fases de negocio y modelo de telemetría:

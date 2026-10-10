@@ -39,7 +39,8 @@ const sidebars = {
             'developers/adr/0008-desacoplamiento-catalogo-y-capa-visual-canvas',
             'developers/adr/0009-compilacion-aot-y-caching-perimetral-de-lienzo-canvas',
             'developers/adr/0010-baja-suave-de-platos-y-snapshots-inmutables',
-            'developers/adr/0011-jerarquia-de-metricas-analiticas-y-telemetria-de-menu'
+            'developers/adr/0011-jerarquia-de-metricas-analiticas-y-telemetria-de-menu',
+            'developers/adr/0012-postergacion-seguimiento-ocupacion-mesas-qr'
           ]
         }
       ]

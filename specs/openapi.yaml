@@ -35,7 +35,10 @@ paths:
         - name: table_token
           in: query
           required: false
-          description: Token criptográfico identificador de la mesa física
+          description: >
+            Token criptográfico identificador de la mesa física. Actúa exclusivamente como parámetro
+            contextual opcional para asociar la comanda a la mesa si se requiere, descartando el
+            seguimiento de ocupación o permanencia física por escaneo (ADR-0012).
           schema:
             type: string
             example: sec_99a8b7
@@ -924,7 +927,9 @@ components:
         priority_medium_metrics:
           type: object
           nullable: true
-          description: Analítica de Rendimiento Temporal y Sala (Plan Pro)
+          description: >
+            Analítica de Rendimiento Temporal y Tráfico (Plan Pro). Excluye métricas de ocupación
+            o permanencia física por QR (ADR-0012).
           properties:
             peak_hours:
               type: array
@@ -937,14 +942,6 @@ components:
                   visits_count:
                     type: integer
                     example: 340
-            revpash_estimate:
-              type: number
-              format: double
-              example: 1850.50
-            table_turnover_rate:
-              type: number
-              format: double
-              example: 2.8
             device_breakdown:
               type: object
               properties:

@@ -55,9 +55,8 @@ Métricas capturadas de forma nativa en la plataforma sin requerir integraciones
 ### Nivel 2: Prioridad Media (Plan Pro / Analítica de Rendimiento Temporal y Sala)
 Métricas orientadas a la optimización operativa en sala y gestión de ingresos (Revenue Management):
 * **Horas Pico de Visitas y Distribución Temporal:** Curva de demanda horaria para optimizar dotación de personal.
-* **RevPASH (Revenue Per Available Seat-Hour):** Ingreso generado por asiento y hora disponible en salón.
-* **Rotación de Mesas y Duración del Ciclo de Servicio:** Frecuencia de comensales atendidos por mesa y tiempo promedio de ocupación.
 * **Tipo de Dispositivo y Rendimiento de Navegación:** Segmentación de tráfico por agente de usuario (móvil vs. escritorio) para auditar el cumplimiento del rendimiento de interfaz.
+* **RevPASH (Revenue Per Available Seat-Hour) y Rotación de Mesas (POSTPUESTO / DEFERRED - ADR-0012):** La medición de ocupación y tiempo de permanencia mediante QR queda aplazada. Se integrará con datos fidedignos en fases posteriores a través de un módulo de turnos y recepción (Waitlist/Turnos) o integración de comandas.
 
 ### Nivel 3: Prioridad Baja (Fases Avanzadas / Integraciones Financieras y Operativas de Cocina)
 Métricas que dependen de integración con software externo (POS, KDS, RMS y Nómina):

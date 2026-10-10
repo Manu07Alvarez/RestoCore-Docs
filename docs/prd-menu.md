@@ -35,7 +35,8 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
   * Categorías más populares e interactivas.
 
 ### Funcionalidades Excluidas (Out-of-Scope - MVP)
-* **Métricas de Prioridad Media (Plan Pro - Fases Posteriores):** Curva de horas pico en salón, cálculo de RevPASH (Revenue Per Available Seat-Hour) y rotación de mesas (diferido a módulos de gestión de sala).
+* **Medición de Ocupación y Tiempo de Permanencia de Mesas vía QR:** Queda formalmente excluida la inferencia de ocupación de salón, cálculo de comensales sentados, rotación de mesas y duración del ciclo de servicio a través del escaneo del código QR de la mesa (ADR-0012). El escaneo no garantiza presencia física ni número de personas, evitando la complejidad de mantener ventanas temporales (TTL) imprecisas en la base de datos.
+* **Métricas de Prioridad Media (Plan Pro - Fases Posteriores):** Curva de horas pico en salón, cálculo de RevPASH (Revenue Per Available Seat-Hour) y analítica avanzada de salón (diferido a módulos dedicados).
 * **Métricas de Prioridad Baja (Fases Avanzadas - Integraciones Externas):** Costo Primo (Prime Cost), Varianza de costo teórico vs. real de alimentos, y tiempos de comanda en cocina (requieren integración con POS, RMS, inventarios y nóminas).
 * **Baja Física Permanente de Platos (Hard Delete):** Queda estrictamente excluida la eliminación física destructiva (`DELETE` relacional) de platos en la base de datos de producción para evitar inconsistencias referenciales e históricas (ADR-0010).
 * **Animaciones Complejas en Video o 3D:** Renderizado de elementos tridimensionales interactivos o fondos animados en video de alto peso.
@@ -43,6 +44,11 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **Registro o Autenticación de Clientes:** La visualización de la Carta QR es 100% anónima; no se solicita login ni registro de usuario.
 * **Pagos en Línea desde la Carta:** Integración con pasarelas de pago (diferido para iteraciones posteriores).
 * **Llamada Digital a Mozo:** Botón de solicitud de atención física en mesa desde el celular (diferido).
+
+### Visión de Expansión Futura (Módulo de Gestión de Turnos y Recepción / Waitlist)
+En fases posteriores, la medición precisa de ocupación y rotación se implementará mediante un módulo especializado de **Gestión de Turnos y Recepción (Waitlist/Turnos)**:
+* **Conteo Real de Comensales:** Registro verificado de personas sentadas por mesa gestionado por el personal de salón o tótem de autoservicio en puerta.
+* **Tiempo de Asignación y Ciclo de Servicio:** Marcas de tiempo exactas al momento de sentar a los comensales (mesa ocupada) y de cierre de cuenta/limpieza (mesa liberada), permitiendo derivar indicadores fidedignos de rotación de mesas y RevPASH sin estimaciones erróneas basadas en tráfico web.
 
 ---
 
@@ -55,6 +61,7 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **Adaptación de Escala Responsiva:** El lienzo renderizado debe normalizar las coordenadas relativas respecto a un ancho base estándar garantizando legibilidad en terminales móviles sin scroll horizontal indeseado.
 * **Desacoplamiento Estricto de Datos y Vista:** La configuración del lienzo se almacena como un objeto semiestructurado opcional (`layout_config`) en PostgreSQL `JSONB`, desacoplado de las entidades relacionales (`ADR-0005`).
 * **Integridad Referencial Histórica con Snapshots Inmutables:** Los registros de pedidos nunca deben depender de la existencia continua del registro en `MenuItem`. Toda modificación o archivado de catálogo respeta los datos congelados en `OrderItem` (ADR-0010).
+* **Parámetro de Mesa Contextual:** El atributo `table_token` actúa exclusivamente como parámetro contextual opcional en la URL del menú digital para referenciar la mesa física si se requiere, descartando su uso para inferir estados de presencia o sesiones de estancia (ADR-0012).
 * **Carga Asíncrona de Fondos e Imágenes:** Los fondos personalizados del lienzo emplean URLs pre-firmadas hacia SeaweedFS (`ADR-0004`).
 * **Medición de Rendimiento con Trazas (OpenTelemetry):** El presupuesto de latencia se auditará exclusivamente mediante trazas distribuidas y `spans` delimitados.
 * **Registro de Logs Estructurados y Privacidad:** Las excepciones operativas se registrarán en formato JSON estructurado con `tenant_id`, `http.status_code`, `error.code`, `trace_id` y `span_id`. Prohibido almacenar PII.
@@ -74,6 +81,7 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 * **ADR-0008:** Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).
 * **ADR-0010:** Baja Suave (Soft Delete) de Platos del Menú, Snapshots Inmutables en Comandas y Explicaciones Claras al Usuario.
 * **ADR-0011:** Jerarquía de Métricas Analíticas por Fases y Modelo de Telemetría de Menú.
+* **ADR-0012:** Postergación del Seguimiento de Ocupación de Mesas por QR y Visión de Módulo de Turnos (Waitlist).
 
 ---
 

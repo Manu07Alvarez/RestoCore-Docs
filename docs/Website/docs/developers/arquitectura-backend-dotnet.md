@@ -106,11 +106,11 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items/{id}/restore` | `TenantAdminOnly` | 200, 401, 403, 404 | Restauración de plato previamente retirado (`ADR-0010`). |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items/{id}/modifiers` | `TenantAdminOnly` | 201, 400, 401, 403 | Agregado de modificadores y opciones de precio. |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/branding` | `TenantAdminOnly` | 200, 401, 403 | Actualización de identidad visual y colores. |
-| **Mesas & QR** | `GET` | `/api/v1/admin/tables/{id}/qr` | `TenantAdminOnly` | 200, 401, 403, 404 | Descarga del código QR en formato SVG o PNG. |
+| **Mesas & QR** | `GET` | `/api/v1/admin/tables/{id}/qr` | `TenantAdminOnly` | 200, 401, 403, 404 | Descarga de QR vectorial (SVG/PNG) para contexto de comanda (`ADR-0012`). |
 | **Cocina (KDS)** | `PATCH` | `/api/v1/kitchen/items/{id}/availability` | `KitchenOnly` | 200, 401, 403, 404 | Cambio inmediato de disponibilidad de stock. |
 | **SuperAdmin** | `POST` | `/api/v1/admin/tenants` | `SuperAdminOnly` | 201, 400, 401, 403, 409 | Aprovisionamiento de nuevos restaurantes. |
 | **Analítica** | `POST` | `/api/v1/analytics/collect` | Público (Anónimo) | 202, 400 | Ingesta asíncrona de eventos analíticos de comensales (`ADR-0011`). |
-| **Analítica Admin**| `GET` | `/api/v1/admin/analytics/dashboard` | `TenantAdminOnly` | 200, 401, 403 | Panel de métricas de Nivel 1 (Tráfico e Ingeniería de Menú) y Nivel 2 (`ADR-0011`). |
+| **Analítica Admin**| `GET` | `/api/v1/admin/analytics/dashboard` | `TenantAdminOnly` | 200, 401, 403 | Panel de Nivel 1 (Tráfico e Ingeniería de Menú) y Nivel 2 (horas pico/dispositivos) (`ADR-0011`, `ADR-0012`). |
 | **Salud** | `GET` | `/healthz` | Público (Anónimo) | 200 | Estado de vida del proceso del servidor. |
 | **Salud** | `GET` | `/ready` | Público (Anónimo) | 200, 503 | Estado de conectividad de PostgreSQL, Redis, SeaweedFS y OPA. |
 

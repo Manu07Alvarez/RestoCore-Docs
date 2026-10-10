@@ -95,8 +95,8 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 ### 5.2. Prioridad Media (Plan Pro / Rendimiento Temporal y Sala)
 * **[EARS-METRIC-005] (State-Driven):**
   MIENTRAS el tenant cuente con suscripción Plan Pro activa, el sistema DEBERÁ generar la curva de distribución horaria de visitas identificando las horas pico de afluencia del establecimiento.
-* **[EARS-METRIC-006] (State-Driven):**
-  MIENTRAS se registren aperturas de mesas y facturación de comandas, el sistema DEBERÁ calcular el indicador RevPASH (ingreso por asiento y hora disponible) y la duración promedio del ciclo de servicio por mesa.
+* **[EARS-METRIC-006] (State-Driven - POSPUESTO / DEFERRED - ADR-0012):**
+  MIENTRAS se encuentre integrado el módulo de recepción y turnos de salón (Waitlist/Turnos), el sistema DEBERÁ calcular el indicador RevPASH y la duración fidedigna del ciclo de servicio por mesa mediante eventos físicos de asignación y liberación, descartando el seguimiento impreciso por sesiones web de QR.
 * **[EARS-METRIC-007] (Ubiquitous):**
   El sistema DEBERÁ segmentar las métricas de navegación por tipo de dispositivo (móvil vs. escritorio) sin almacenar información personal identificable (PII).
 
@@ -128,5 +128,5 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
 | **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
 | **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |
-| **EARS-METRIC-006**| State-Driven | Analytics / RevPASH & Tables | Test de agregación de ingresos por asiento/hora |
+| **EARS-METRIC-006**| State-Driven | Analytics / Waitlist Module | Pospuesto a fase Waitlist (ADR-0012) |
 | **EARS-METRIC-008**| Optional Features| Analytics / Prime Cost Engine | Test condicional de agregación COGS + Nómina |
