@@ -12,13 +12,17 @@ El backend de RestoCore es un servicio modular diseñado bajo los principios de 
 * **Lenguaje y Runtime:** C# 13 sobre .NET 10 SDK.
 * **Framework Web:** ASP.NET Core Minimal APIs con mapeo modular de endpoints.
 * **Patrón de Casos de Uso:** Mediador CQRS permisivo de cero dependencias (*Zero-Dependency Mediator* en `RestoCore.Application/Common/Mediator`), desacoplado de bibliotecas externas para maximizar rendimiento y velocidad de resolución.
+* **Patrón Repositorio y Unidad de Trabajo (Unit of Work):** Persistencia encapsulada mediante interfaces segregadas por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`) y delimitación atómica de transacciones con `IUnitOfWork`.
+* **Resiliencia ante Concurrencia Optimista:** Manejo explícito de colisiones transaccionales (`DbUpdateConcurrencyException`) mediante reintentos con retroceso exponencial (*exponential backoff*) y fluctuación aleatoria (*jitter*) en operaciones operativas de cocina.
 * **Validación:** FluentValidation integrado en la canalización de comandos de aplicación.
 * **Capa de Persistencia:** Entity Framework Core con el proveedor `Npgsql.EntityFrameworkCore.PostgreSQL`.
 * **Motor de Base de Datos:** PostgreSQL 16+ con particionamiento lógico multi-tenant, columnas `JSONB` e índices `GIN` (`ADR-0003`).
-* **Almacenamiento Desacoplado de Objetos:** SeaweedFS (S3-compatible) mediante generación de URLs pre-firmadas temporales (`ADR-0004`).
+* **Autenticación e Identidad:** Emisión y validación de tokens JWT Bearer (`AuthEndpoints`) con claims de usuario (`sub`), contexto del restaurante (`tenant_id`, `tenant_slug`) y roles (`owner`, `tenant_admin`, `kitchen_staff`, `cook`, `super_admin`).
 * **Seguridad y Autorización:** Autorización declarativa evaluada contra Open Policy Agent (OPA / Rego) (`ADR-0006`).
+* **Control de Acceso de Origen Cruzado (CORS):** Política estricta basada en orígenes configurables (`CORS_ALLOWED_ORIGINS`), con soporte de credenciales y exposición de la cabecera `ETag`.
+* **Almacenamiento Desacoplado de Objetos:** SeaweedFS (S3-compatible) mediante generación de URLs pre-firmadas temporales (`ADR-0004`).
 * **Generación de Códigos QR:** Servicio nativo con exportación vectorial SVG y binaria PNG mediante QRCoder.
-* **Observabilidad y Telemetría:** OpenTelemetry instrumentado para trazado distribuido (W3C Trace Context), métricas y logs estructurados OTLP con visualización en tiempo real vía **.NET Aspire Dashboard** (`ADR-0005`, `ADR-0006`).
+* **Observabilidad y Telemetría:** OpenTelemetry instrumentado para trazado distribuido (W3C Trace Context), métricas, logging de ejecución HTTP estructurado y logs OTLP con visualización en tiempo real vía **.NET Aspire Dashboard** (`ADR-0005`, `ADR-0006`).
 * **Documentación Interactiva:** Swagger UI / OpenAPI 3.1 integrado para desarrollo local.
 * **Validación de Carga y Rendimiento:** Suite automatizada de pruebas de estrés con **k6**.
 
@@ -53,6 +57,7 @@ Contiene las entidades del negocio, invariantes y reglas de dominio puras sin de
 ### 2.2. `RestoCore.Application` (Capa de Aplicación)
 Implementa los casos de uso del sistema organizados por características funcionales (*Feature Folders*):
 * **Mediador Permisivo Zero-Dependency (`Common/Mediator`):** Implementación nativa de `IMediator`, `IRequest<TResponse>`, `IRequestHandler<TRequest, TResponse>` y `ISender`, eliminando la sobrecarga de dependencias de terceros.
+* **Desacoplamiento Estricto de Persistencia:** Todos los handlers CQRS en la capa de Aplicación han sido desacoplados de `IApplicationDbContext`. La interacción con la base de datos se realiza exclusivamente a través de interfaces de repositorios segregadas (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`) y la delimitación transaccional con `IUnitOfWork`.
 * **`Features/PublicMenu`:** Consulta optimizada de la carta digital mediante `GetPublicMenuQuery`. Implementa:
   * **Depuración Automática de Platos Huérfanos (*Orphan Dish Pruning*):** Si un plato posicionado en el lienzo es eliminado del catálogo o marcado como no disponible en cocina, el query omite dicho elemento del árbol geométrico sin corromper el renderizado del lienzo.
   * **Caché y Validación Condicional:** Cabecera HTTP `Cache-Control: public, max-age=3600, s-maxage=86400` y evaluación de `If-None-Match` retornando HTTP 304 Not Modified ante coincidencia de ETag.
@@ -62,7 +67,7 @@ Implementa los casos de uso del sistema organizados por características funcion
 * **`Features/Storage`:** Comando `GeneratePresignedUploadCommand` para la emisión de URLs pre-firmadas hacia SeaweedFS, con validación de extensiones permitidas (`.jpg`, `.jpeg`, `.png`, `.webp`) y límite de tamaño de 5 MB.
 * **`Features/Categories`:** Comandos para alta (`CreateCategoryCommand`) y ordenamiento de categorías con validaciones de unicidad de nombre por tenant.
 * **`Features/MenuItems`:** Comandos de creación de platos (`CreateMenuItemCommand`), asignación de grupos de modificadores (`ManageModifiersCommand`), baja suave con verificación de ausencia de comandas activas en cocina (`SoftDeleteMenuItemCommand` retornando confirmación no técnica amigable) y restauración (`RestoreMenuItemCommand`) (`ADR-0010`).
-* **`Features/Kitchen`:** Comandos operativos inmediatos como la alternancia de disponibilidad de stock (`ToggleItemAvailabilityCommand`).
+* **`Features/Kitchen`:** Comandos operativos inmediatos como la alternancia de disponibilidad de stock (`ToggleItemAvailabilityCommand`), delegando en `IKitchenRepository` para reintentos transparentes ante colisiones concurrentes.
 * **`Features/QrCodes`:** Consulta y renderizado dinámico de códigos QR para mesas físicas (`GetTableQrQuery`).
 * **`Features/Tenants`:** Aprovisionamiento de nuevas cuentas (`ProvisionTenantCommand`) y personalización de marca (`UpdateBrandingCommand`).
 
@@ -74,6 +79,12 @@ Provee la implementación concreta de servicios externos y persistencia:
   * Configuración `MenuPublishJobConfiguration` con índices compuestos por `TenantId` y `Status`.
   * Migración EF Core: `20260918025637_AddCanvasLayoutAndMenuPublishJobs`.
   * **Invalidación de Caché Post-Commit:** Detección de mutaciones en entidades del menú durante `SaveChangesAsync()` e invalidación atómica de la caché en memoria y Redis una vez confirmada la transacción en PostgreSQL.
+* **Patrón Repositorio y Unit of Work (`Persistence/Repositories/` & `UnitOfWork.cs`):**
+  * `CatalogRepository`: Operaciones sobre categorías, platos, grupos de modificadores y consulta del catálogo completo de tenant.
+  * `KitchenRepository`: Implementa `UpdateItemAvailabilityWithRetryAsync` con manejo de `DbUpdateConcurrencyException`, separación de ChangeTracker (`EntityState.Detached`) y retroceso exponencial con fluctuación aleatoria (*jitter*).
+  * `MenuLayoutRepository`: Gestión de configuración geométrica de lienzo y ciclo de vida de `MenuPublishJob`.
+  * `TenantRepository`: Resolución, verificación de unicidad de slugs y gestión de mesas físicas con tokens de seguridad.
+  * `UnitOfWork`: Implementa `IUnitOfWork` administrando transacciones atómicas con `BeginTransactionAsync`, `CommitTransactionAsync`, `RollbackTransactionAsync` y `CommitAsync`.
 * **Servicio de Compilación AOT (`MenuCompilationService`):** Implementa `IMenuCompilationService` para el preprocesamiento estático del menú, aplanamiento de capas geométricas y cálculo de tiempo de ejecución con SLA inferior a 3 segundos.
 * **Servicio de Purgado Perimetral CDN (`LocalDevelopmentCdnPurgeService`):** Implementa `ICdnPurgeService` emitiendo órdenes de invalidación perimetral por tag de tenant. Instrumentado con telemetría OpenTelemetry para registrar fallos con `error.code="CDN_PURGE_FAILURE"`.
 * **Almacenamiento Desacoplado (`SeaweedStorageService`):** Implementa `IStorageService` interactuando con la API S3 de SeaweedFS para emitir URLs de subida pre-firmadas temporales.
@@ -84,7 +95,9 @@ Provee la implementación concreta de servicios externos y persistencia:
 
 ### 2.4. `RestoCore.Api` (Capa de Presentación y Enrutamiento)
 Punto de entrada HTTP estructurado mediante Minimal APIs:
-* **Mapeo Modular de Rutas:** Agrupación semántica (`PublicMenuEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `StorageEndpoints`, `HealthEndpoints`).
+* **Mapeo Modular de Rutas:** Agrupación semántica (`AuthEndpoints`, `PublicMenuEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `StorageEndpoints`, `HealthEndpoints`).
+* **Autenticación e Identidad JWT:** `AuthEndpoints` expone `/api/v1/auth/login` y `/api/v1/auth/me`. Emisión de tokens firmados HMAC-SHA256 con claims estructurados (`sub`, `tenant_id`, `tenant_slug`, `role`).
+* **Middleware de Registro Estructurado:** Captura el método HTTP, ruta, `TenantSlug`, `TenantId`, código de respuesta y duración en milisegundos correlacionado con el contexto W3C Trace de OpenTelemetry.
 * **Soporte de Caché Condicional y Distribución Perimetral:** Implementación de cabeceras HTTP `ETag` y `Cache-Control: public, max-age=3600, s-maxage=86400` con retorno HTTP 304 Not Modified ante coincidencias de `If-None-Match`.
 * **Manejo Centralizado de Excepciones:** `GlobalExceptionHandler` intercepta fallos y genera respuestas estándar RFC 7807 (Problem Details) con trazabilidad `traceId`.
 * **Verificación de Salud Exhaustiva:** Endpoints `/healthz` (liveness) y `/ready` (readiness con auditoría concurrente de PostgreSQL, Redis, SeaweedFS y OPA).
@@ -95,6 +108,8 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 
 | Módulo / Grupo | Método | Ruta | Autorización | Códigos HTTP | Propósito |
 | :--- | :---: | :--- | :---: | :---: | :--- |
+| **Autenticación** | `POST` | `/api/v1/auth/login` | Público (Anónimo) | 200, 401 | Autenticación con credenciales y emisión de token JWT firmado con claims y roles. |
+| **Identidad** | `GET` | `/api/v1/auth/me` | Requiere Token | 200, 401 | Consulta del perfil, roles y contexto del usuario autenticado en sesión (`BearerAuth`). |
 | **Menú Público** | `GET` | `/api/v1/tenants/{tenant_slug}/menu` | Público (Anónimo) | 200, 304, 404 | Obtiene la carta completa con `layout_config`, poda de huérfanos, `ETag` y `Cache-Control`. |
 | **Redirección QR**| `GET` | `/r/{tenant_slug}` | Público (Anónimo) | 302 | Enlace corto para códigos QR impresos. |
 | **Lienzo Admin** | `PUT` | `/api/v1/admin/menu/layout` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Guarda o restablece la configuración geométrica de lienzo en JSONB (`ADR-0008`). |
@@ -107,7 +122,7 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items/{id}/modifiers` | `TenantAdminOnly` | 201, 400, 401, 403 | Agregado de modificadores y opciones de precio. |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/branding` | `TenantAdminOnly` | 200, 401, 403 | Actualización de identidad visual y colores. |
 | **Mesas & QR** | `GET` | `/api/v1/admin/tables/{id}/qr` | `TenantAdminOnly` | 200, 401, 403, 404 | Descarga de QR vectorial (SVG/PNG) para contexto de comanda (`ADR-0012`). |
-| **Cocina (KDS)** | `PATCH` | `/api/v1/kitchen/items/{id}/availability` | `KitchenOnly` | 200, 401, 403, 404 | Cambio inmediato de disponibilidad de stock. |
+| **Cocina (KDS)** | `PATCH` | `/api/v1/kitchen/items/{id}/availability` | `KitchenOnly` | 200, 401, 403, 404 | Cambio inmediato de disponibilidad de stock con reintento concurrente. |
 | **SuperAdmin** | `POST` | `/api/v1/admin/tenants` | `SuperAdminOnly` | 201, 400, 401, 403, 409 | Aprovisionamiento de nuevos restaurantes. |
 | **Analítica** | `POST` | `/api/v1/analytics/collect` | Público (Anónimo) | 202, 400 | Ingesta asíncrona de eventos analíticos de comensales (`ADR-0011`). |
 | **Analítica Admin**| `GET` | `/api/v1/admin/analytics/dashboard` | `TenantAdminOnly` | 200, 401, 403 | Panel de Nivel 1 (Tráfico e Ingeniería de Menú) y Nivel 2 (horas pico/dispositivos) (`ADR-0011`, `ADR-0012`). |
@@ -131,8 +146,9 @@ El entorno de desarrollo local orquesta todos los servicios requeridos de manera
 
 El backend cuenta con una batería de pruebas automatizadas organizadas en tres proyectos de validación:
 
-### 5.1. Pruebas Unitarias (`RestoCore.UnitTests`) - 30 Tests Superados
+### 5.1. Pruebas Unitarias (`RestoCore.UnitTests`) - 33 Tests Superados
 * `ItemAvailabilityStateTests`: Valida transiciones de disponibilidad en cocina.
+* `ToggleItemAvailabilityCommandHandlerTests`: Valida alternancia exitosa de disponibilidad, detección de ítems inexistentes y resiliencia ante `DbUpdateConcurrencyException` con política de reintentos exponenciales y jitter.
 * `MenuValidationTests`: Valida rangos de precios, nombres obligatorios y restricciones de selección en modificadores.
 * `TenantResolutionTests`: Valida la extracción de contexto multi-tenant desde múltiples orígenes.
 * `PublicMenuQueryTests` & `PublicMenuCanvasTests`: Valida la construcción jerárquica de la respuesta pública, consistencia del hash `ETag`, renderizado de coordenadas relativas de lienzo y depuración transparente de platos huérfanos.

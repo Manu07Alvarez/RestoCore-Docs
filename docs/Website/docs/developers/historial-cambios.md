@@ -2,6 +2,17 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Repositorios, Unit of Work con Resiliencia de Concurrencia y Autenticación JWT (Feature 006 en `resto-core-back`)
+* **Fecha:** 10 de Octubre de 2026
+* **Commit:** `41738b1` en `resto-core-back`
+* **Resumen:** Refactorización integral de la capa de persistencia y módulo de identidad:
+  * **Segregación de Repositorios:** Creación de interfaces de persistencia segregadas por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`), desacoplando de manera estricta todos los comandos y consultas de la capa de Aplicación respecto de `IApplicationDbContext`.
+  * **Unidad de Trabajo (Unit of Work):** Implementación de `IUnitOfWork` y `UnitOfWork` para delimitación atómica explícita de transacciones y confirmación unificada (`CommitAsync`, `BeginTransactionAsync`, `CommitTransactionAsync`, `RollbackTransactionAsync`).
+  * **Resiliencia ante Concurrencia Optimista:** Estrategia de reintentos automáticos con retroceso exponencial (*exponential backoff*) y fluctuación aleatoria (*jitter*) ante colisiones `DbUpdateConcurrencyException` en `KitchenRepository.UpdateItemAvailabilityWithRetryAsync`, desacoplando la entidad del ChangeTracker (`EntityState.Detached`) antes de cada reintento.
+  * **Autenticación e Identidad JWT:** Mapeo de Minimal APIs en `AuthEndpoints` (`POST /api/v1/auth/login` y `GET /api/v1/auth/me`) para emisión y validación de tokens JWT con claims de usuario (`sub`, `name`, `email`), contexto multi-tenant (`tenant_id`, `tenant_slug`) y roles (`owner`, `tenant_admin`, `kitchen_staff`, `cook`, `super_admin`).
+  * **CORS Estricto y Middleware de Ejecución:** Restricción configurable de orígenes cruzados vía `CORS_ALLOWED_ORIGINS` con credenciales y exposición de la cabecera `ETag`. Registro estructurado de solicitudes HTTP correlacionadas con trazas W3C de OpenTelemetry.
+  * **Cobertura de Pruebas:** Incremento a 33 pruebas unitarias superadas en `RestoCore.UnitTests`, incorporando suites para validación de reintentos concurrentes (`ToggleItemAvailabilityCommandHandlerTests`).
+
 ---
 
 ## Hito: Postergación del Seguimiento de Ocupación por QR y Visión de Módulo Waitlist (ADR-0012)

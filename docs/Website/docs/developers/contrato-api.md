@@ -10,6 +10,10 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
 
 ### Endpoints Principales
 
+0. **Autenticación e Identidad (JWT & Credenciales):**
+   * `POST /api/v1/auth/login`: Autenticación pública de usuarios (dueños de restaurante, personal de cocina, superadministradores) y emisión de token JWT firmado con claims de identidad, roles (`owner`, `tenant_admin`, `kitchen_staff`, `cook`, `super_admin`) y contexto multi-tenant (`tenant_id`, `tenant_slug`).
+   * `GET /api/v1/auth/me`: Consulta protegida mediante `BearerAuth` que retorna los claims, roles y tenant asignado del usuario en sesión.
+
 1. **Carta Digital Pública (Acceso Anónimo & Distribución Perimetral CDN):**
    * `GET /api/v1/tenants/{tenant_slug}/menu`: Consulta anónima del catálogo completo (< 2s LCP), servido desde la red perimetral (CDN) con cabeceras `Cache-Control: public, max-age=3600, s-maxage=86400` y validación condicional `ETag`. Incluye el objeto `layout_config` plano optimizado para maquetación en modo lienzo.
 
