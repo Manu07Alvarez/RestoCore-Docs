@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.2">
 <title data-rh="true">Documento de Requisitos de Producto (PRD): Carta Digital y Capa Aditiva de Lienzo (Canvas Layout) | RestoCore Docs</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://Manu07Alvarez.github.io/RestoCore-Docs/img/docusaurus-social-card.jpg"><meta data-rh="true" name="twitter:image" content="https://Manu07Alvarez.github.io/RestoCore-Docs/img/docusaurus-social-card.jpg"><meta data-rh="true" property="og:url" content="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr"><meta data-rh="true" property="og:locale" content="es"><meta data-rh="true" name="docusaurus_locale" content="es"><meta data-rh="true" name="docsearch:language" content="es"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Documento de Requisitos de Producto (PRD): Carta Digital y Capa Aditiva de Lienzo (Canvas Layout) | RestoCore Docs"><meta data-rh="true" name="description" content="Este documento establece las especificaciones funcionales, límites de alcance, restricciones y criterios de aceptación para el módulo de Carta Digital del Cliente y Maquetación de Lienzo Personalizado (Canvas Mode) (Módulo 01 del Playbook de Ingeniería y Fase 3 del Flujo de Trabajo Homologado SDD)."><meta data-rh="true" property="og:description" content="Este documento establece las especificaciones funcionales, límites de alcance, restricciones y criterios de aceptación para el módulo de Carta Digital del Cliente y Maquetación de Lienzo Personalizado (Canvas Mode) (Módulo 01 del Playbook de Ingeniería y Fase 3 del Flujo de Trabajo Homologado SDD)."><link data-rh="true" rel="icon" href="/RestoCore-Docs/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr"><link data-rh="true" rel="alternate" href="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr" hreflang="es"><link data-rh="true" rel="alternate" href="https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Documento de Requisitos de Producto (PRD): Carta Digital y Capa Aditiva de Lienzo (Canvas Layout)","item":"https://Manu07Alvarez.github.io/RestoCore-Docs/docs/clientes/prd-menu-qr"}]}</script><link rel="stylesheet" href="/RestoCore-Docs/assets/css/styles.cf4ee90f.css">
-<script src="/RestoCore-Docs/assets/js/runtime~main.49cd94b3.js" defer="defer"></script>
-<script src="/RestoCore-Docs/assets/js/main.2307f4e5.js" defer="defer"></script>
+<script src="/RestoCore-Docs/assets/js/runtime~main.dcd3a63b.js" defer="defer"></script>
+<script src="/RestoCore-Docs/assets/js/main.064bd9af.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -38,9 +38,19 @@
 <li class=""><strong>Bloqueo Operativo con Explicación No Técnica ante Pedidos Activos:</strong> Validación que impide archivar un plato si existen comandas activas o en preparación en cocina, respondiendo con HTTP 409 Conflict y un mensaje comprensible, empático y libre de tecnicismos.</li>
 <li class=""><strong>Confirmación Amigable de Retiro Exitoso:</strong> Respuesta informativa al usuario administrador que clarifica de forma simple que el plato ya no es visible para los clientes pero que todo el historial de ventas permanece seguro e intacto.</li>
 <li class=""><strong>Restauración de Platos:</strong> Reincorporación inmediata de platos archivados (<code>POST /api/v1/admin/items/{id}/restore</code>) al menú público.</li>
+<li class=""><strong>Telemetría y Métricas Analíticas - Prioridad Alta (Fase MVP):</strong> Ingesta asíncrona de eventos de navegación sin impacto en latencia:<!-- -->
+<ul>
+<li class="">Tráfico de acceso QR y visitas agregadas (día / mes).</li>
+<li class="">Platos más vistos y popularidad de productos.</li>
+<li class="">Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles y Perros) combinando popularidad con márgenes de contribución.</li>
+<li class="">Categorías más populares e interactivas.</li>
+</ul>
+</li>
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_jIvb" id="funcionalidades-excluidas-out-of-scope---mvp">Funcionalidades Excluidas (Out-of-Scope - MVP)<a href="#funcionalidades-excluidas-out-of-scope---mvp" class="hash-link" aria-label="Enlace directo al Funcionalidades Excluidas (Out-of-Scope - MVP)" title="Enlace directo al Funcionalidades Excluidas (Out-of-Scope - MVP)" translate="no">​</a></h3>
 <ul>
+<li class=""><strong>Métricas de Prioridad Media (Plan Pro - Fases Posteriores):</strong> Curva de horas pico en salón, cálculo de RevPASH (Revenue Per Available Seat-Hour) y rotación de mesas (diferido a módulos de gestión de sala).</li>
+<li class=""><strong>Métricas de Prioridad Baja (Fases Avanzadas - Integraciones Externas):</strong> Costo Primo (Prime Cost), Varianza de costo teórico vs. real de alimentos, y tiempos de comanda en cocina (requieren integración con POS, RMS, inventarios y nóminas).</li>
 <li class=""><strong>Baja Física Permanente de Platos (Hard Delete):</strong> Queda estrictamente excluida la eliminación física destructiva (<code>DELETE</code> relacional) de platos en la base de datos de producción para evitar inconsistencias referenciales e históricas (ADR-0010).</li>
 <li class=""><strong>Animaciones Complejas en Video o 3D:</strong> Renderizado de elementos tridimensionales interactivos o fondos animados en video de alto peso.</li>
 <li class=""><strong>Edición Directa de Código CSS/HTML:</strong> Inyección de estilos libres o scripts por parte de los usuarios administradores.</li>
@@ -52,6 +62,7 @@
 <h2 class="anchor anchorTargetStickyNavbar_jIvb" id="3-restricciones-y-asunciones">3. Restricciones y Asunciones<a href="#3-restricciones-y-asunciones" class="hash-link" aria-label="Enlace directo al 3. Restricciones y Asunciones" title="Enlace directo al 3. Restricciones y Asunciones" translate="no">​</a></h2>
 <ul>
 <li class=""><strong>Presupuesto de Latencia y Rendimiento de Entrega (&lt; 2s LCP):</strong> La entrega del artefacto estático compilado desde la CDN perimetral al comensal no debe superar los 2 segundos de tiempo total de respuesta (&lt; 2.0s LCP) bajo redes móviles 3G/4G/5G, tanto en la plantilla estándar como en la maquetación de lienzo Canvas.</li>
+<li class=""><strong>Captura Analítica Asíncrona Desacoplada:</strong> El envío de telemetría de navegación y visualización de platos debe ejecutarse mediante <code>navigator.sendBeacon</code> o peticiones <code>POST</code> en segundo plano sin bloquear el hilo principal ni degradar el LCP del comensal.</li>
 <li class=""><strong>Restricción de Rendimiento de Compilación AOT (&lt; 3s Pipeline):</strong> El pipeline de compilación Ahead-Of-Time (AOT) en el backend debe completarse en menos de 3 segundos tras la confirmación de publicación (<code>POST /api/v1/admin/menu/publish</code>) desde el panel administrativo.</li>
 <li class=""><strong>Gestión de Activos y Variantes Adaptativas:</strong> Todas las imágenes del lienzo (fondos y platos) deben ser procesadas y entregadas mediante variantes adaptativas (<code>srcset</code>) optimizadas para pantallas móviles en formatos modernos WebP y AVIF a partir de los originales almacenados en SeaweedFS.</li>
 <li class=""><strong>Almacenamiento y Caché Perimetral (CDN):</strong> El menú público se sirve a través de la red perimetral (<code>ADR-0005</code> y <code>ADR-0006</code>) con cabeceras de caché HTTP (<code>Cache-Control: public, max-age=3600, s-maxage=86400</code>). El backend emite una orden de purgado de caché inmediata al publicar cambios.</li>
@@ -76,6 +87,7 @@
 <li class=""><strong>ADR-0007:</strong> Procesamiento de pedidos con cola FIFO y eventos WebSockets en tiempo real.</li>
 <li class=""><strong>ADR-0008:</strong> Desacoplamiento entre el Catálogo de Datos y la Capa de Maquetación Visual (Canvas).</li>
 <li class=""><strong>ADR-0010:</strong> Baja Suave (Soft Delete) de Platos del Menú, Snapshots Inmutables en Comandas y Explicaciones Claras al Usuario.</li>
+<li class=""><strong>ADR-0011:</strong> Jerarquía de Métricas Analíticas por Fases y Modelo de Telemetría de Menú.</li>
 </ul>
 <hr>
 <h2 class="anchor anchorTargetStickyNavbar_jIvb" id="5-desglose-de-tareas-atómicas-desarrollo-en-paralelo">5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)<a href="#5-desglose-de-tareas-atómicas-desarrollo-en-paralelo" class="hash-link" aria-label="Enlace directo al 5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)" title="Enlace directo al 5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)" translate="no">​</a></h2>
