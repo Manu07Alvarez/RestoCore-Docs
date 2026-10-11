@@ -15,8 +15,9 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 ### Funcionalidades Incluidas (In-Scope - MVP)
 * **Gestión de Menú y Categorías:** Crear, editar, reordenar y ocultar categorías y platos gastronómicos.
   * **Modificación Total y Parcial de Platos:** Soportar operaciones de actualización completa (`PUT`) y modificación parcial de atributos (`PATCH`), incluyendo nombre, descripción, precio base, disponibilidad, imagen, modificadores y etiquetas dietéticas.
-  * **Relación Estructural 1:N (Platos y Categorías):** Definir una asociación estricta de un plato a una categoría única (`1:N`) mediante clave foránea obligatoria `category_id`. Esta cardinalidad unívoca previene ambigüedades en la navegación y maximiza la eficiencia del caching perimetral en CDN sin la sobrecarga relacional de tablas intermedias.
-  * **Etiquetas Dietéticas (`DietaryLabels`):** Retener el catálogo estructurado de etiquetas dietéticas y alérgenos (`celiac_safe`, `vegan`, `vegetarian`, `dairy_free`, `nut_free`, etc.) tanto en contratos de API como en persistencia para informar adecuadamente a los comensales.
+  * **Categorías como Taxonomía a Grandes Rasgos (Relación 1:N):** Las categorías operan como definiciones macro a grandes rasgos para la organización general de la carta (ejemplo: "Entradas", "Platos Principales", "Bebidas", "Postres"). Cada plato pertenece de forma unívoca a una única categoría (`1:N`) mediante la clave foránea `category_id`.
+  * **Etiquetas Dietéticas y de Bebidas (`DietaryLabels` - Relación N:M):** Sistema de clasificación ortogonal con cardinalidad Muchos a Muchos (`N:M`). Un alimento o producto puede satisfacer simultáneamente múltiples condiciones dietéticas (por ejemplo, ser a la vez vegano y sin TACC / `celiac_safe`), mientras que para el rubro de bebidas permite identificar explícitamente si son sin alcohol (`alcohol_free`) o con alcohol (`contains_alcohol`). A su vez, una misma etiqueta dietética se vincula a múltiples platos y bebidas del menú.
+    * Catálogo base de etiquetas: `celiac_safe` (Sin TACC / Apto Celíacos), `vegan` (Vegano), `vegetarian` (Vegetariano), `dairy_free` (Sin Lácteos), `nut_free` (Sin Frutos Secos), `alcohol_free` (Bebida Sin Alcohol), `contains_alcohol` (Bebida Con Alcohol), `sugar_free` (Sin Azúcar).
 * **Política de Baja Suave (Soft Delete) y Ventana de Retención de 7 Días:**
   * Los platos eliminados por el usuario se marcan con fecha de baja (`deleted_at`) y se ocultan inmediatamente de la carta pública.
   * Se establece una ventana de gracia de 7 días (1 semana) donde el plato permanece en estado archivado y puede ser restaurado desde el panel de administración.
@@ -94,6 +95,12 @@ Feature: Administración CRUD de Menú y Ciclo de Vida de Platos
     When envía una solicitud PUT al endpoint del plato con nuevo precio, descripción y dietary_labels ["celiac_safe", "vegan"]
     Then el sistema DEBERÁ validar y actualizar los atributos del plato en PostgreSQL
     And el menú público DEBERÁ reflejar los cambios en menos de 500 milisegundos
+
+  Scenario: Asignación de etiquetas dietéticas múltiples y clasificación de bebidas (Relación N:M)
+    Given que el administrador registra un ítem en la categoría "Bebidas"
+    When asigna las etiquetas dietéticas ["alcohol_free", "sugar_free"]
+    Then el sistema DEBERÁ asociar ambas etiquetas al producto mediante la relación N:M
+    And los comensales podrán filtrar la carta por productos veganos, sin TACC o bebidas sin alcohol concurrentemente
 
   Scenario: Intento de asociar un plato a una categoría inexistente
     Given que el administrador intenta crear o actualizar un plato

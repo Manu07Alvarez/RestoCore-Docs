@@ -110,6 +110,20 @@ paths:
           description: Hash de versión previo del cliente para validación condicional 304
           schema:
             type: string
+        - name: dietary_labels
+          in: query
+          required: false
+          description: >
+            Filtro opcional para comensales por una o más etiquetas dietéticas (relación N:M).
+            Permite combinar filtros concurrentes (ejemplo: vegano y sin TACC / celiac_safe,
+            o discriminar bebidas sin alcohol / alcohol_free).
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: false
+          example: [celiac_safe, vegan]
       responses:
         '200':
           description: Carta gastronómica recuperada exitosamente
@@ -918,8 +932,21 @@ components:
           example: 1
         dietary_labels:
           type: array
+          description: >
+            Etiquetas dietéticas y de clasificación de alimentos/bebidas asociadas bajo relación N:M.
+            Permite combinar múltiples condiciones (ejemplo: alimento vegano y sin TACC simultáneamente,
+            o bebidas clasificadas como alcohol_free o contains_alcohol).
           items:
             type: string
+            enum:
+              - celiac_safe
+              - vegan
+              - vegetarian
+              - dairy_free
+              - nut_free
+              - sugar_free
+              - alcohol_free
+              - contains_alcohol
           example: [celiac_safe, vegan]
         allergens:
           type: array
@@ -962,6 +989,7 @@ components:
           example: 1
         dietary_labels:
           type: array
+          description: Etiquetas dietéticas N:M asociadas al ítem (ej. vegano y sin TACC, o bebida sin alcohol)
           items:
             type: string
           example: [celiac_safe, vegan]
@@ -1002,9 +1030,10 @@ components:
           example: 1
         dietary_labels:
           type: array
+          description: Conjunto actualizado de etiquetas dietéticas N:M
           items:
             type: string
-          example: [celiac_safe]
+          example: [celiac_safe, vegan]
         allergens:
           type: array
           items:
@@ -1033,8 +1062,10 @@ components:
           type: integer
         dietary_labels:
           type: array
+          description: Actualización opcional de etiquetas dietéticas N:M
           items:
             type: string
+          example: [alcohol_free]
         allergens:
           type: array
           items:

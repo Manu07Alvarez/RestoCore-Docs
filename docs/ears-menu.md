@@ -64,11 +64,13 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ## 4. Requisitos de Ciclo de Vida, Modificación y Baja Suave de Platos
 
-### 4.1. Modificación de Atributos y Asociación Categórica (1:N)
+### 4.1. Modificación de Atributos, Asociación Categórica (1:N) y Etiquetas Dietéticas (N:M)
 * **[EARS-DISH-006] (Event-Driven):**
   CUANDO el administrador modifique los atributos de un plato (`PUT` o `PATCH /api/v1/admin/items/{id}`), el sistema DEBERÁ validar y actualizar los datos en el catálogo, preservando sus etiquetas dietéticas (`DietaryLabels`) e invalidando la caché perimetral en CDN.
 * **[EARS-DISH-007] (Unwanted Behavior):**
   SI se intenta asociar un plato a una categoría inexistente o no válida, ENTONCES el sistema DEBERÁ rechazar la operación y retornar un error de validación con código HTTP 422 Unprocessable Entity.
+* **[EARS-DISH-010] (Ubiquitous):**
+  El sistema DEBERÁ soportar la asignación múltiple de etiquetas dietéticas (`DietaryLabels`) bajo una relación N:M para cada producto, permitiendo identificar de forma simultánea atributos dietéticos en alimentos (como vegano y sin TACC / `celiac_safe`) y la presencia o ausencia de alcohol en bebidas (`contains_alcohol` vs. `alcohol_free`).
 
 ### 4.2. Retiro de Platos, Retención de 7 Días y Purga Física Programada
 * **[EARS-DISH-001] (Event-Driven):**
@@ -140,6 +142,7 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-DISH-007** | Unwanted Behavior | Catalog / Category Guard | Test de rechazo 422 por `category_id` inexistente |
 | **EARS-DISH-008** | Event-Driven | Purge Worker / Storage | Test de purga definitiva en BD y SeaweedFS tras 7 días |
 | **EARS-DISH-009** | State-Driven | Catalog / Restore Guard | Test de disponibilidad de restauración mientras `now() - deleted_at < 7d` |
+| **EARS-DISH-010** | Ubiquitous | Catalog / Dietary Engine | Test de asignación múltiple N:M de etiquetas y clasificación de bebidas |
 | **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
 | **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
 | **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |
