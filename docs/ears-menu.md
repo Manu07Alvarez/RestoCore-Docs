@@ -62,21 +62,31 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ---
 
-## 4. Requisitos de Ciclo de Vida y Baja Suave de Platos (Soft Delete)
+## 4. Requisitos de Ciclo de Vida, Modificación y Baja Suave de Platos
 
-### 4.1. Retiro de Platos y Preservación Histórica
+### 4.1. Modificación de Atributos y Asociación Categórica (1:N)
+* **[EARS-DISH-006] (Event-Driven):**
+  CUANDO el administrador modifique los atributos de un plato (`PUT` o `PATCH /api/v1/admin/items/{id}`), el sistema DEBERÁ validar y actualizar los datos en el catálogo, preservando sus etiquetas dietéticas (`DietaryLabels`) e invalidando la caché perimetral en CDN.
+* **[EARS-DISH-007] (Unwanted Behavior):**
+  SI se intenta asociar un plato a una categoría inexistente o no válida, ENTONCES el sistema DEBERÁ rechazar la operación y retornar un error de validación con código HTTP 422 Unprocessable Entity.
+
+### 4.2. Retiro de Platos, Retención de 7 Días y Purga Física Programada
 * **[EARS-DISH-001] (Event-Driven):**
-  CUANDO el administrador solicite archivar un plato (`DELETE /api/v1/admin/items/{id}`) y no existan pedidos activos asociados en cocina, el sistema DEBERÁ marcar la entidad como archivada (`IsDeleted = true`), registrar la fecha de baja (`DeletedAtUtc`), invalidar la caché del menú y responder con una confirmación no técnica indicando que el plato se retiró de la carta y que el historial de ventas permanece intacto.
+  CUANDO el administrador solicite la eliminación de un plato (`DELETE /api/v1/admin/items/{id}`), el sistema DEBERÁ registrar la marca de tiempo de baja (`deleted_at`), ocultar el plato de la vista pública y programar su purga física para 7 días posteriores.
 * **[EARS-DISH-002] (Ubiquitous):**
   El sistema DEBERÁ registrar snapshots inmutables (`ItemNameSnapshot`, `UnitPriceSnapshot`, `AppliedModifiersJson`) en cada línea de pedido (`OrderItem`), garantizando que los comprobantes y reportes contables históricos permanezcan inalterables independientemente de la baja suave del plato.
 * **[EARS-DISH-003] (State-Driven):**
-  MIENTRAS un plato se encuentre en estado archivado (`IsDeleted == true`), el sistema DEBERÁ excluirlo automáticamente de las consultas de la carta pública y del catálogo de pedidos activos mediante filtros de consulta globales (*Global Query Filters*).
+  MIENTRAS un plato se encuentre en estado archivado (`is_deleted == true`), el sistema DEBERÁ excluirlo automáticamente de las consultas de la carta pública y del catálogo de pedidos activos mediante filtros de consulta globales (*Global Query Filters*).
+* **[EARS-DISH-008] (Event-Driven):**
+  CUANDO transcurra el plazo de 7 días desde la baja suave (`deleted_at <= NOW() - INTERVAL '7 days'`), el sistema DEBERÁ eliminar definitivamente el registro de la base de datos y sus activos en el almacenamiento de SeaweedFS mediante un proceso automatizado en segundo plano.
 
-### 4.2. Bloqueo de Seguridad Operacional y Restauración
+### 4.3. Bloqueo Operacional y Restauración Administrativa
 * **[EARS-DISH-004] (Unwanted Behavior):**
   SI el plato solicitado para baja se encuentra incluido en comandas activas en salón o cocina (`Pending`, `InPreparation`, `Ready`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict y proveer una advertencia no técnica informando que no es posible retirar el plato mientras existan pedidos en preparación.
+* **[EARS-DISH-009] (State-Driven):**
+  MIENTRAS un plato permanezca en periodo de baja suave (menos de 7 días desde `deleted_at`), el sistema DEBERÁ permitir su restauración desde el panel administrativo restableciendo su visibilidad activa en el menú digital.
 * **[EARS-DISH-005] (Event-Driven):**
-  CUANDO el administrador ejecute la restauración de un plato archivado (`POST /api/v1/admin/items/{id}/restore`), el sistema DEBERÁ restablecer el estado activo (`IsDeleted = false`), invalidar la caché perimetral del tenant y habilitar su visualización inmediata en la carta digital.
+  CUANDO el administrador ejecute la restauración de un plato archivado dentro de los 7 días de retención (`POST /api/v1/admin/items/{id}/restore`), el sistema DEBERÁ restablecer el estado activo (`is_deleted = false`, `deleted_at = null`), invalidar la caché perimetral del tenant y habilitar su visualización inmediata en la carta digital.
 
 ---
 
@@ -121,10 +131,15 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-AOT-001** | Event-Driven | AOT Pipeline / Backend | Test de integración `POST /publish` y purgado |
 | **EARS-AOT-003** | State-Driven | CDN Edge / Cloudflare | Test de respuesta HTTP con cabeceras de caché |
 | **EARS-AOT-004** | Unwanted Behavior | AOT Pipeline / CMS | Test de resiliencia y retención de versión previa |
-| **EARS-DISH-001** | Event-Driven | Catalog / Admin Service | Test de endpoint `DELETE /items/{id}` y respuesta amigable |
+| **EARS-DISH-001** | Event-Driven | Catalog / Admin Service | Test de endpoint `DELETE /items/{id}` con marca `deleted_at` y retención 7 días |
 | **EARS-DISH-002** | Ubiquitous | Orders / OrderItems Entity | Test de persistencia de snapshots inmutables |
+| **EARS-DISH-003** | State-Driven | Catalog / Query Filter | Test de exclusión de platos archivados en API pública |
 | **EARS-DISH-004** | Unwanted Behavior | Kitchen KDS / Orders Guard | Test de rechazo 409 con pedidos en cocina |
-| **EARS-DISH-005** | Event-Driven | Catalog / Restore Endpoint | Test de reactivación `POST /items/{id}/restore` |
+| **EARS-DISH-005** | Event-Driven | Catalog / Restore Endpoint | Test de reactivación `POST /items/{id}/restore` dentro de 7 días |
+| **EARS-DISH-006** | Event-Driven | Catalog / Update Endpoint | Test de mutación total (`PUT`) y parcial (`PATCH`) de plato |
+| **EARS-DISH-007** | Unwanted Behavior | Catalog / Category Guard | Test de rechazo 422 por `category_id` inexistente |
+| **EARS-DISH-008** | Event-Driven | Purge Worker / Storage | Test de purga definitiva en BD y SeaweedFS tras 7 días |
+| **EARS-DISH-009** | State-Driven | Catalog / Restore Guard | Test de disponibilidad de restauración mientras `now() - deleted_at < 7d` |
 | **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
 | **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
 | **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |

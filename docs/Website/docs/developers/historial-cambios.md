@@ -2,6 +2,18 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Modificación de Platos, Relación 1:N con Categorías, DietaryLabels y Baja Suave con Retención de 7 Días (ADR-0010 Actualizado)
+* **Fecha:** 10 de Octubre de 2026
+* **Resumen:** Actualización integral de especificaciones funcionales, relacionales y de ciclo de vida de catálogo:
+  * **Modificación Parcial y Total de Platos:** Especificación de operaciones `PUT /api/v1/admin/items/{id}` (modificación total con invalidación en CDN) y `PATCH /api/v1/admin/items/{id}` (modificación parcial con concurrencia optimista) en el PRD de administración y contratos OpenAPI 3.1.
+  * **Asociación Estructural 1:N (Platos y Categorías):** Formalización de la cardinalidad unívoca obligatoria mediante clave foránea `category_id` (`REFERENCES categories(id) ON DELETE RESTRICT`). Descarte documentado de la relación N:M para el MVP para garantizar simplicidad en la carta móvil y rendimiento del caché perimetral (< 2s LCP).
+  * **Etiquetas Dietéticas (`DietaryLabels`):** Retención y estandarización del atributo `DietaryLabels` / `dietary_labels` (apto celíacos, vegano, vegetariano, etc.) y `Allergens` tanto en el modelo relacional como en las peticiones y respuestas DTO del catálogo.
+  * **Ciclo de Baja Suave y Retención de 7 Días:** Establecimiento de ventana de gracia de 7 días (1 semana) a partir de `deleted_at`, ocultando inmediatamente el plato de la vista pública y permitiendo su restauración administrativa.
+  * **Purga Física Programada:** Definición del worker automatizado (`PurgeArchivedDishesWorker`) para la eliminación definitiva en PostgreSQL (`DELETE FROM dishes WHERE is_deleted = true AND deleted_at <= NOW() - INTERVAL '7 days'`) y remoción de archivos binarios multimedia en SeaweedFS.
+  * **Cláusulas EARS y Escenarios Gherkin:** Incorporación de cláusulas formales `[EARS-DISH-006]` a `[EARS-DISH-009]`, escenarios Gherkin de actualización y purga, y respuestas `422 Unprocessable Entity` ante categorías inexistentes.
+
+---
+
 ## Hito: Repositorios, Unit of Work con Resiliencia de Concurrencia y Autenticación JWT (Feature 006 en `resto-core-back`)
 * **Fecha:** 10 de Octubre de 2026
 * **Commit:** `41738b1` en `resto-core-back`
