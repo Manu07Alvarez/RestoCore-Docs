@@ -81,8 +81,10 @@ paths:
       summary: Obtener carta digital pública completa
       description: >
         Retorna la carta gastronómica estructurada de un restaurante, optimizada para
-        cumplir el presupuesto de latencia (< 2s LCP). Incluye soporte condicional de
-        caché mediante ETag y el objeto opcional `layout_config` para maquetación en modo lienzo.
+        cumplir el presupuesto de latencia (< 2s LCP). Omite de manera transparente cualquier
+        plato o categoría que se encuentre en estado de baja suave (`is_deleted == true` o
+        `deleted_at != null`). Incluye soporte condicional de caché mediante ETag y el objeto
+        opcional `layout_config` para maquetación en modo lienzo.
       operationId: getPublicMenu
       parameters:
         - name: tenant_slug
@@ -331,6 +333,10 @@ paths:
       tags:
         - Admin - Catalog
       summary: Crear nuevo plato gastronómico
+      description: >
+        Registra un nuevo plato gastronómico asociado a una categoría única (`1:N`).
+        Valida que el `category_id` provisto exista y pertenezca al tenant activo.
+        Conserva atributos nutricionales y etiquetas dietéticas estructuradas (`dietary_labels`).
       operationId: createMenuItem
       security:
         - BearerAuth: []
@@ -339,49 +345,179 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - category_id
-                - name
-                - price
-              properties:
-                category_id:
-                  type: string
-                  format: uuid
-                name:
-                  type: string
-                  example: Hamburguesa Gourmet
-                description:
-                  type: string
-                price:
-                  type: number
-                  format: double
-                  example: 12500.00
-                image_url:
-                  type: string
-                  format: uri
-                dietary_tags:
-                  type: array
-                  items:
-                    type: string
-                  example: [celiac_safe, vegan]
+              $ref: '#/components/schemas/CreateMenuItemRequest'
       responses:
         '201':
-          description: Plato creado exitosamente
+          description: Plato creado exitosamente en el catálogo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemDto'
+        '400':
+          description: Datos de solicitud con formato inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: "Error de validación de negocio (categoría inexistente o no válida para el tenant)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/admin/items/{id}:
+    put:
+      tags:
+        - Admin - Catalog
+      summary: Modificación total de plato gastronómico
+      description: >
+        Actualiza la totalidad de los atributos de un plato existente. Requiere la asignación
+        unívoca a una categoría válida (`category_id`) y actualiza precio, disponibilidad,
+        modificadores y etiquetas dietéticas (`dietary_labels`). Invalida el caché en CDN.
+      operationId: updateMenuItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMenuItemRequest'
+      responses:
+        '200':
+          description: Plato actualizado completamente con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemDto'
+        '400':
+          description: Solicitud con estructura de datos inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: "Error de validación semántica (categoría destino inexistente o no válida)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    patch:
+      tags:
+        - Admin - Catalog
+      summary: Modificación parcial de plato gastronómico
+      description: >
+        Actualiza un subconjunto específico de propiedades de un plato existente (ejemplo: cambiar
+        únicamente precio, disponibilidad o agregar una etiqueta dietética). Si se provee `category_id`,
+        valida que la categoría exista y pertenezca al tenant activo.
+      operationId: patchMenuItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchMenuItemRequest'
+      responses:
+        '200':
+          description: Propiedades del plato actualizadas con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemDto'
+        '400':
+          description: Solicitud con estructura de datos inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: "Error de validación semántica (categoría destino inexistente o inválida)"
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
     delete:
       tags:
         - Admin - Catalog
-      summary: Baja suave de plato gastronómico (Archivado de carta)
+      summary: Baja suave de plato gastronómico con retención de 7 días (Archivado de carta)
       description: >
-        Ejecuta la baja suave (`IsDeleted = true`, `DeletedAtUtc = now`) del plato en el catálogo
+        Ejecuta la baja suave (`is_deleted = true`, `deleted_at = UtcNow`) del plato en el catálogo
         del restaurante (ADR-0010). Verifica que el plato no se encuentre en pedidos abiertos o
         en preparación en cocina (KDS). Si tiene pedidos activos en cocina, bloquea la acción
-        retornando HTTP 409 Conflict con una advertencia humana comprensible. Si la baja suave
-        se ejecuta con éxito, preserva la integridad contable e histórica en `OrderItem` mediante
-        snapshots inmutables y desvinculación a clave foránea nulable, retornando una confirmación
-        amigable y no técnica para el usuario.
+        retornando HTTP 409 Conflict con una advertencia humana comprensible.
+        Si la baja suave se ejecuta con éxito, preserva la integridad contable e histórica en `OrderItem`
+        mediante snapshots inmutables, oculta el plato inmediatamente de la carta pública y programa
+        su purga física definitiva para 7 días posteriores. Durante este plazo de 7 días, el plato puede
+        ser restaurado desde el panel de administración.
       operationId: deleteMenuItem
       security:
         - BearerAuth: []
@@ -395,7 +531,7 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Plato retirado exitosamente de la carta con confirmación amigable
+          description: Plato retirado exitosamente de la carta con confirmación amigable y retención de 7 días
           content:
             application/json:
               schema:
@@ -429,11 +565,12 @@ paths:
     post:
       tags:
         - Admin - Catalog
-      summary: Restaurar plato gastronómico previamente retirado
+      summary: Restaurar plato gastronómico archivado dentro de la ventana de 7 días
       description: >
-        Revierte la baja suave de un plato (`IsDeleted = false`, `DeletedAtUtc = null`) en el catálogo
-        del restaurante (ADR-0010), reincorporándolo inmediatamente a la visualización de la carta
-        digital para los clientes.
+        Revierte la baja suave de un plato (`is_deleted = false`, `deleted_at = null`) en el catálogo
+        del restaurante (ADR-0010), siempre que se encuentre dentro del periodo de retención de 7 días
+        previo a la purga definitiva. Reincorpora inmediatamente el plato a la visualización de la carta
+        digital para los clientes e invalida la caché perimetral.
       operationId: restoreMenuItem
       security:
         - BearerAuth: []
@@ -465,7 +602,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
-          description: Plato no encontrado en el tenant activo
+          description: Plato no encontrado o plazo de retención de 7 días vencido (purgado definitivamente)
           content:
             application/problem+json:
               schema:
@@ -753,11 +890,15 @@ components:
       type: object
       required:
         - id
+        - category_id
         - name
         - price
         - is_available
       properties:
         id:
+          type: string
+          format: uuid
+        category_id:
           type: string
           format: uuid
         name:
@@ -772,7 +913,129 @@ components:
           format: uri
         is_available:
           type: boolean
-        dietary_tags:
+        display_order:
+          type: integer
+          example: 1
+        dietary_labels:
+          type: array
+          items:
+            type: string
+          example: [celiac_safe, vegan]
+        allergens:
+          type: array
+          items:
+            type: string
+          example: [nuts, dairy]
+        is_deleted:
+          type: boolean
+          default: false
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateMenuItemRequest:
+      type: object
+      required:
+        - category_id
+        - name
+        - price
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Hamburguesa Gourmet
+        description:
+          type: string
+          example: Medallón de carne premium con cebolla caramelizada y queso brie
+        price:
+          type: number
+          format: double
+          example: 12500.00
+        image_url:
+          type: string
+          format: uri
+        display_order:
+          type: integer
+          example: 1
+        dietary_labels:
+          type: array
+          items:
+            type: string
+          example: [celiac_safe, vegan]
+        allergens:
+          type: array
+          items:
+            type: string
+          example: [dairy]
+
+    UpdateMenuItemRequest:
+      type: object
+      required:
+        - category_id
+        - name
+        - price
+        - is_available
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Hamburguesa Gourmet Especial
+        description:
+          type: string
+        price:
+          type: number
+          format: double
+          example: 13500.00
+        is_available:
+          type: boolean
+          example: true
+        image_url:
+          type: string
+          format: uri
+        display_order:
+          type: integer
+          example: 1
+        dietary_labels:
+          type: array
+          items:
+            type: string
+          example: [celiac_safe]
+        allergens:
+          type: array
+          items:
+            type: string
+          example: [dairy]
+
+    PatchMenuItemRequest:
+      type: object
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: double
+        is_available:
+          type: boolean
+        image_url:
+          type: string
+          format: uri
+        display_order:
+          type: integer
+        dietary_labels:
+          type: array
+          items:
+            type: string
+        allergens:
           type: array
           items:
             type: string
@@ -848,6 +1111,9 @@ components:
         - status
         - message
         - has_open_orders
+        - archived_at
+        - retention_days
+        - purge_scheduled_at
       properties:
         item_id:
           type: string
@@ -868,6 +1134,15 @@ components:
           type: string
           format: date-time
           example: 2026-09-20T14:30:00Z
+        retention_days:
+          type: integer
+          example: 7
+          description: Ventana de retención en baja suave antes de la purga física permanente
+        purge_scheduled_at:
+          type: string
+          format: date-time
+          example: 2026-09-27T14:30:00Z
+          description: Fecha y hora programada para la purga física definitiva en base de datos y SeaweedFS
 
     AnalyticsEventRequest:
       type: object

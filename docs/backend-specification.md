@@ -43,9 +43,12 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `POST /api/v1/admin/menu/publish`: Desencadenamiento del pipeline AOT y purgado CDN con retorno HTTP 202 Accepted (`TenantAdminOnly`).
 * `POST /api/v1/storage/presigned-upload`: Generación de URLs pre-firmadas temporales para subida de fotos a SeaweedFS (`TenantAdminOnly`).
 * `POST /api/v1/admin/categories`: Alta de categorías (requiere rol `TenantAdminOnly`).
-* `POST /api/v1/admin/items`: Creación de platos con precios y etiquetas dietarias JSONB.
-* `DELETE /api/v1/admin/items/{id}`: Baja suave de plato (`IsDeleted = true`) con validación de órdenes activas y mensaje amigable (`TenantAdminOnly`).
-* `POST /api/v1/admin/items/{id}/restore`: Restauración inmediata de plato archivado (`TenantAdminOnly`).
+* `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única (`1:N` vía `category_id`), validando existencia y persistiendo etiquetas dietéticas (`DietaryLabels`).
+* `PUT /api/v1/admin/items/{id}`: Modificación completa de atributos del plato (precio, categoría, descripción, modificadores y etiquetas dietéticas) con invalidación CDN (`TenantAdminOnly`).
+* `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades del plato con reintento concurrente (`TenantAdminOnly`).
+* `DELETE /api/v1/admin/items/{id}`: Baja suave de plato (`is_deleted = true`, `deleted_at = UtcNow`) con retención de 7 días, validación de órdenes activas y mensaje amigable (`TenantAdminOnly`).
+* `POST /api/v1/admin/items/{id}/restore`: Restauración de plato archivado dentro de la ventana de 7 días (`TenantAdminOnly`).
+* `Worker PurgeArchivedDishesWorker`: Tarea programada en segundo plano para purga física definitiva de registros con `deleted_at <= NOW() - INTERVAL '7 days'` y eliminación de imágenes en SeaweedFS.
 * `POST /api/v1/admin/items/{id}/modifiers`: Asignación de grupos de modificadores.
 * `PUT /api/v1/admin/branding`: Configuración de identidad visual del restaurante.
 * `GET /api/v1/admin/tables/{id}/qr`: Generación y descarga de códigos QR para mesas (SVG/PNG).

@@ -26,9 +26,11 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
 
 4. **Administración CRUD de Catálogo, Ciclo de Vida y Mesas (Protegido `owner` / `tenant_admin`):**
    * `POST /api/v1/admin/categories`: Creación y reordenamiento de categorías.
-   * `POST /api/v1/admin/items`: Creación y edición de platos, modificadores y precios con soporte JSONB.
-   * `DELETE /api/v1/admin/items/{id}`: Baja suave de platos (`IsDeleted = true`, `DeletedAtUtc = now`) respaldada por snapshots inmutables en `OrderItem` (`ADR-0010`). Retorna `200 OK` con `MenuItemArchiveResponse` conteniendo una confirmación amigable ("El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros."). Si existen órdenes abiertas o en preparación en cocina, bloquea con `409 Conflict` y advertencia no técnica.
-   * `POST /api/v1/admin/items/{id}/restore`: Reincorporación inmediata de un plato archivado a la carta digital.
+   * `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única (`1:N` vía `category_id`), con etiquetas dietéticas (`dietary_labels`) y alérgenos. Retorna `422 Unprocessable Entity` si la categoría no existe en el tenant.
+   * `PUT /api/v1/admin/items/{id}`: Modificación total de los datos de un plato existente (precio, categoría, descripción, modificadores y etiquetas dietéticas). Invalida la caché perimetral en la CDN.
+   * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades específicas del plato (disponibilidad, deltas de precio, adición de etiquetas dietéticas o cambio de categoría).
+   * `DELETE /api/v1/admin/items/{id}`: Baja suave de platos (`is_deleted = true`, `deleted_at = UtcNow`) con retención de 7 días respaldada por snapshots inmutables en `OrderItem` (`ADR-0010`). Retorna `200 OK` con `MenuItemArchiveResponse` conteniendo confirmación amigable, ventana de retención (`retention_days: 7`) y fecha de purga física programada. Si existen órdenes abiertas o en preparación en cocina, bloquea con `409 Conflict` y advertencia no técnica.
+   * `POST /api/v1/admin/items/{id}/restore`: Reincorporación inmediata de un plato archivado a la carta digital dentro de la ventana de 7 días previa a la purga física.
    * `GET /api/v1/admin/tables/{id}/qr`: Descarga de código QR dinámico para mesas físicas en formato vectorial (SVG) o binario (PNG).
 
 5. **Comandas de Cocina y Salón (Protegido `cook` / `waiter`):**

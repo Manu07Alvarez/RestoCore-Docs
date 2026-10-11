@@ -1,4 +1,4 @@
-﻿---
+---
 id: 0010-baja-suave-de-platos-y-snapshots-inmutables
 title: ADR-0010 Baja Suave de Platos con Snapshots Inmutables de Comandas
 ---
@@ -45,41 +45,100 @@ Si el sistema permitiera una eliminación física destructiva (`HARD DELETE` a n
 
 ## Decisión Tomada
 
-Se adopta la **Opción 3: Implementar exclusivamente Baja Suave (Soft Delete) sobre platos, respaldada por Snapshots Inmutables en las líneas de pedido y avisos explicativos no técnicos**.
+Se adopta la **Opción 3: Implementar exclusivamente Baja Suave (Soft Delete) con retención de 7 días sobre platos, respaldada por Snapshots Inmutables en las líneas de pedido, purga física automatizada y avisos explicativos no técnicos**.
 
-### 1. Modelo de Datos y Persistencia
-* La entidad `MenuItem` incorpora las propiedades de auditoría:
-  - `IsDeleted: bool = false`
-  - `DeletedAtUtc: DateTimeOffset? = null`
-* Entity Framework Core aplica un filtro de consulta global (*Global Query Filter*):
-  `builder.Entity<MenuItem>().HasQueryFilter(m => !m.IsDeleted && m.TenantId == currentTenantId);`
-* La entidad de líneas de pedido (`OrderItem`) desacopla su dependencia estricta mediante:
-  - `MenuItemId: Guid?` (clave foránea con comportamiento `ON DELETE SET NULL`).
+### 1. Modelo Relacional de Catálogo (Relación 1:N Platos y Categorías)
+
+Se define una asociación unívoca **1:N** entre categorías y platos mediante clave foránea obligatoria `category_id`. Se evaluó la alternativa N:M (múltiples categorías por plato mediante tabla intermedia `dish_categories`), pero se descartó para el MVP debido a que la relación 1:N previene inconsistencias de precios, simplifica la ordenación jerárquica en el menú y optimiza la serialización y caching perimetral en CDN (< 2s LCP).
+
+#### Estructura DDL en PostgreSQL
+
+```sql
+-- Tabla de Categorías de Menú
+CREATE TABLE categories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT NULL,
+    display_order INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Tabla de Platos (Dishes / MenuItems)
+CREATE TABLE dishes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    category_id UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+    name VARCHAR(150) NOT NULL,
+    description TEXT NULL,
+    base_price NUMERIC(12, 2) NOT NULL,
+    is_available BOOLEAN NOT NULL DEFAULT true,
+    image_url TEXT NULL,
+    display_order INT NOT NULL DEFAULT 0,
+    allergens TEXT[] NOT NULL DEFAULT '{}',
+    dietary_labels TEXT[] NOT NULL DEFAULT '{}',
+    is_deleted BOOLEAN NOT NULL DEFAULT false,
+    deleted_at TIMESTAMP WITH TIME ZONE NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Índices de consulta activa y soporte de baja suave
+CREATE INDEX idx_dishes_active_tenant ON dishes (tenant_id, category_id, display_order) 
+    WHERE is_deleted = false;
+
+CREATE INDEX idx_dishes_purge_candidates ON dishes (deleted_at) 
+    WHERE is_deleted = true;
+```
+
+### 2. Snapshots Inmutables en Líneas de Pedido (Auditoría Contable)
+* La entidad `OrderItem` desacopla su dependencia estricta del catálogo para no bloquear la eliminación ni verse afectada por mutaciones futuras:
+  - `MenuItemId: Guid?` (clave foránea nulable con comportamiento `ON DELETE SET NULL`).
   - `ItemNameSnapshot: string` (nombre exacto del plato al momento de emitir la comanda).
   - `UnitPriceSnapshot: decimal` (precio unitario congelado).
   - `AppliedModifiersJson: string` (modificadores, adicionales y precios agregados congelados).
 
-### 2. Bloqueo de Comandas Activas en Cocina
-* Al solicitar la baja suave, el caso de uso verifica si el plato existe en pedidos con estado activo (`Pending`, `InPreparation`, `Ready`).
-* De detectarse pedidos en curso, la solicitud se rechaza con código HTTP `409 Conflict` (RFC 7807 ProblemDetails) y el mensaje explicativo:
-  > *"Este plato no puede retirarse de la carta en este momento porque la cocina tiene pedidos pendientes o en preparación que lo incluyen. Por favor, finaliza o cancela esos pedidos antes de retirarlo."*
+### 3. Política de Baja Suave y Periodo de Retención de 7 Días
+* Al solicitar la eliminación de un plato (`DELETE /api/v1/admin/items/{id}`):
+  1. El sistema verifica que no existan comandas activas en salón o cocina (`Pending`, `InPreparation`, `Ready`). De existir, responde con HTTP 409 Conflict y advertencia comprensible no técnica.
+  2. Si no hay pedidos en curso, se registra `is_deleted = true` y `deleted_at = NOW()`.
+  3. El plato queda inmediatamente oculto de la carta pública mediante Global Query Filters en EF Core:
+     `builder.Entity<MenuItem>().HasQueryFilter(m => !m.IsDeleted && m.TenantId == currentTenantId);`
+  4. Se inicia una ventana de retención de 7 días (1 semana). Durante este periodo, el plato permanece archivado en la base de datos y puede ser restaurado.
 
-### 3. Confirmación No Técnica al Retirar el Plato
-* Al completarse la baja suave con éxito, la respuesta HTTP (`200 OK`) incluye una explicación clara:
-  > *"El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros."*
+### 4. Reversibilidad y Restauración Administrativa
+* Durante el periodo de 7 días desde `deleted_at`, el administrador puede reactivar el plato invocando:
+  `POST /api/v1/admin/items/{id}/restore`
+* La restauración restablece `is_deleted = false`, `deleted_at = null`, e invalida la caché de la CDN para restituir el plato en la carta digital.
 
-### 4. Reversibilidad y Restauración
-* Se implementa el endpoint `POST /api/v1/admin/items/{id}/restore` permitiendo reactivar un plato archivado cuando el restaurante decida volver a comercializarlo.
+### 5. Mecanismo de Purga Física Automatizada (Worker Programado)
+* Al transcurrir 7 días desde la baja suave, el plato es candidato a eliminación física irreversible.
+* Un worker en segundo plano (`PurgeArchivedDishesWorker`) ejecuta un cron job diario con la siguiente instrucción:
+  ```sql
+  DELETE FROM dishes
+  WHERE is_deleted = true
+    AND deleted_at <= NOW() - INTERVAL '7 days'
+  RETURNING id, image_url;
+  ```
+* Por cada registro purgado que contenga `image_url`, el worker despacha una solicitud de eliminación física del archivo binario a SeaweedFS, evitando el almacenamiento de archivos huérfanos.
+
+### 6. Avisos y Retroalimentación No Técnica para el Usuario
+* Al completarse la baja suave con éxito, la respuesta HTTP (`200 OK`) incluye:
+  > *"El plato ha sido retirado de la carta. Los clientes ya no lo verán en el menú digital ni podrán pedirlo, pero todas tus ventas anteriores y reportes seguirán intactos y seguros. Dispones de 7 días para restaurarlo antes de su eliminación definitiva."*
 
 ---
 
 ## Consecuencias
 
 ### Positivas
-* **Cero Pérdida de Información Financiera:** Los registros contables y reportes de comandas pasadas quedan sellados e independientes de cambios en el catálogo.
-* **Seguridad y Confianza del Usuario:** El encargado del restaurante comprende con exactitud qué sucede con su menú y sabe que no ha borrado registros contables.
-* **Protección Operacional en Salón:** Se evita que un mozo o cocinero pierda la referencia visual de un plato que está siendo elaborado.
-* **Reversibilidad Inmediata:** Si un plato fue retirado por error o vuelve la temporada, se restaura en un solo paso conservando su precio, categoría y fotos.
+* **Cero Pérdida de Información Financiera:** Los reportes de comandas y facturas quedan sellados e independientes del ciclo de vida del catálogo.
+* **Seguridad y Confianza del Usuario:** El encargado del restaurante comprende que su plato está retirado de la vista pública pero sus datos históricos están seguros.
+* **Margen de Error Humano Resuelto (Ventana de Gracia):** Si un administrador retira un plato por equivocación, dispone de 7 días para restaurarlo con un solo clic.
+* **Higiene de Datos y Almacenamiento:** La purga a 7 días previene el crecimiento indefinido de la base de datos y libera espacio en disco en SeaweedFS.
+* **Optimización en Consultas (1:N):** La pertenencia unívoca a una sola categoría simplifica la estructura de datos para el cliente móvil y minimiza el tiempo de renderizado (< 2s LCP).
 
 ### Negativas
-* **Gestión de Restricciones de Unicidad:** Si existe una regla de unicidad sobre el nombre del plato dentro de una misma categoría, el índice único en PostgreSQL debe ser un índice parcial condicional: `CREATE UNIQUE INDEX ... WHERE is_deleted = false`.
+* **Gestión de Restricciones de Unicidad:** Si existe regla de unicidad en el nombre del plato por categoría, el índice único en PostgreSQL debe ser condicional: `CREATE UNIQUE INDEX ... WHERE is_deleted = false`.
+* **Proceso Asíncrono Requerido:** Requiere mantener activo un worker en segundo plano con privilegios para interactuar con la base de datos y SeaweedFS.
