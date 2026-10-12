@@ -90,6 +90,22 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 * **[EARS-DISH-005] (Event-Driven):**
   CUANDO el administrador ejecute la restauración de un plato archivado dentro de los 7 días de retención (`POST /api/v1/admin/items/{id}/restore`), el sistema DEBERÁ restablecer el estado activo (`is_deleted = false`, `deleted_at = null`), invalidar la caché perimetral del tenant y habilitar su visualización inmediata en la carta digital.
 
+### 4.4. Gestión Completa de Categorías de Menú (ABMC)
+* **[EARS-CAT-001] (Event-Driven):**
+  CUANDO el administrador solicite crear una nueva categoría (`POST /api/v1/admin/categories`), el sistema DEBERÁ validar el nombre y registrar la categoría asociada al tenant activo con su orden de despliegue (`sort_order`).
+* **[EARS-CAT-002] (Event-Driven):**
+  CUANDO el administrador modifique los atributos de una categoría (`PUT` o `PATCH /api/v1/admin/categories/{id}`), el sistema DEBERÁ persistir las modificaciones de nombre, descripción, visibilidad u orden e invalidar la caché perimetral en CDN.
+* **[EARS-CAT-003] (Unwanted Behavior):**
+  SI el administrador solicita la eliminación de una categoría que posee platos asociados activos o archivados (`DELETE /api/v1/admin/categories/{id}`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict para salvaguardar la integridad referencial (`ON DELETE RESTRICT`) e impedir platos huérfanos.
+* **[EARS-CAT-004] (Event-Driven):**
+  CUANDO el administrador solicite la eliminación de una categoría sin platos asociados, el sistema DEBERÁ eliminar el registro de la categoría e invalidar la caché perimetral en CDN.
+
+### 4.5. Perfil, Datos de Contacto y Nombre del Restaurante (Tenant Profile)
+* **[EARS-TENANT-001] (Event-Driven):**
+  CUANDO el administrador modifique el nombre del restaurante, teléfono, dirección o franjas horarias (`PUT` o `PATCH /api/v1/admin/tenant/profile`), el sistema DEBERÁ actualizar los atributos del tenant e invalidar inmediatamente la caché de la carta digital pública en CDN.
+* **[EARS-TENANT-002] (Ubiquitous):**
+  El sistema DEBERÁ exponer los atributos de contacto (`phone_number`, `address`, `business_hours`) en el contrato de la carta digital pública (`GET /api/v1/tenants/{tenant_slug}/menu`) para consulta directa del comensal.
+
 ---
 
 ## 5. Requisitos de Jerarquía de Métricas Analíticas y Telemetría de Menú
@@ -143,6 +159,12 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-DISH-008** | Event-Driven | Purge Worker / Storage | Test de purga definitiva en BD y SeaweedFS tras 7 días |
 | **EARS-DISH-009** | State-Driven | Catalog / Restore Guard | Test de disponibilidad de restauración mientras `now() - deleted_at < 7d` |
 | **EARS-DISH-010** | Ubiquitous | Catalog / Dietary Engine | Test de asignación múltiple N:M de etiquetas y clasificación de bebidas |
+| **EARS-CAT-001**  | Event-Driven | Catalog / Category Service | Test de creación de categoría `POST /categories` |
+| **EARS-CAT-002**  | Event-Driven | Catalog / Category Service | Test de modificación total/parcial `PUT`/`PATCH /categories/{id}` |
+| **EARS-CAT-003**  | Unwanted Behavior | Catalog / Category Guard | Test de bloqueo 409 Conflict al eliminar categoría con platos |
+| **EARS-CAT-004**  | Event-Driven | Catalog / Category Service | Test de eliminación exitosa `DELETE /categories/{id}` sin ítems |
+| **EARS-TENANT-001**| Event-Driven | Tenant / Profile Service | Test de actualización de datos de contacto y nombre de restaurante |
+| **EARS-TENANT-002**| Ubiquitous | Public Menu / Aggregator | Test de exposición de teléfono, dirección y horarios en carta QR |
 | **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
 | **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
 | **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |

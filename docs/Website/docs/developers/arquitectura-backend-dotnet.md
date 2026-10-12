@@ -122,7 +122,15 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Lienzo Admin** | `PUT` | `/api/v1/admin/menu/layout` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Guarda o restablece la configuración geométrica de lienzo en JSONB (`ADR-0008`). |
 | **Compilación Admin**| `POST`| `/api/v1/admin/menu/publish` | `TenantAdminOnly` | 202, 401, 403, 422, 500 | Desencadena pipeline AOT y purgado perimetral CDN con SLA < 3s (`ADR-0006`). |
 | **Almacenamiento** | `POST` | `/api/v1/storage/presigned-upload` | `TenantAdminOnly` | 200, 400, 401, 403 | Genera URL pre-firmada temporal hacia SeaweedFS (`ADR-0004`). |
+| **Catálogo Admin** | `GET` | `/api/v1/admin/categories` | `TenantAdminOnly` | 200, 401, 403 | Listado de categorías del restaurante ordenadas por `sort_order`. |
+| **Catálogo Admin** | `GET` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 401, 403, 404 | Consulta de detalle de una categoría de menú. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/categories` | `TenantAdminOnly` | 201, 400, 401, 403 | Alta de categorías para el Tenant activo. |
+| **Catálogo Admin** | `PUT` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Modificación total de categoría (nombre, descripción, orden, visibilidad). |
+| **Catálogo Admin** | `PATCH` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Modificación parcial de categoría. |
+| **Catálogo Admin** | `DELETE`| `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 204, 401, 403, 404, 409 | Eliminación de categoría con bloqueo relacional si tiene platos asociados (`ON DELETE RESTRICT`). |
+| **Perfil Admin** | `GET` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 401, 403 | Consulta de información comercial y contacto (nombre, teléfono, dirección, horarios). |
+| **Perfil Admin** | `PUT` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 400, 401, 403 | Modificación completa del perfil comercial e información de contacto con invalidación CDN. |
+| **Perfil Admin** | `PATCH` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 400, 401, 403 | Modificación parcial del perfil o contacto del restaurante. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items` | `TenantAdminOnly` | 201, 400, 401, 403, 422 | Alta de platos asociados unívocamente a una categoría (1:N vía `category_id`), con etiquetas dietéticas (`DietaryLabels`). |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación total del plato con validación relacional e invalidación CDN. |
 | **Catálogo Admin** | `PATCH` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación parcial de propiedades individuales del plato. |

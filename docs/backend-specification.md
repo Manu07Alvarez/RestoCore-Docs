@@ -42,7 +42,15 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `PUT /api/v1/admin/menu/layout`: Guardado de configuración geométrica de lienzo Canvas en JSONB (`TenantAdminOnly`).
 * `POST /api/v1/admin/menu/publish`: Desencadenamiento del pipeline AOT y purgado CDN con retorno HTTP 202 Accepted (`TenantAdminOnly`).
 * `POST /api/v1/storage/presigned-upload`: Generación de URLs pre-firmadas temporales para subida de fotos a SeaweedFS (`TenantAdminOnly`).
+* `GET /api/v1/admin/categories`: Listado ordenado de categorías del restaurante (`TenantAdminOnly`).
+* `GET /api/v1/admin/categories/{id}`: Consulta detallada de una categoría de menú (`TenantAdminOnly`).
 * `POST /api/v1/admin/categories`: Alta de categorías (requiere rol `TenantAdminOnly`).
+* `PUT /api/v1/admin/categories/{id}`: Modificación completa de una categoría existente (`TenantAdminOnly`).
+* `PATCH /api/v1/admin/categories/{id}`: Modificación parcial de atributos de la categoría (`TenantAdminOnly`).
+* `DELETE /api/v1/admin/categories/{id}`: Baja de categoría con bloqueo relacional si tiene platos asociados (`TenantAdminOnly`).
+* `GET /api/v1/admin/tenant/profile`: Consulta de perfil comercial e información de contacto (nombre, teléfono, dirección, horarios) (`TenantAdminOnly`).
+* `PUT /api/v1/admin/tenant/profile`: Modificación completa del perfil comercial y contacto con invalidación CDN (`TenantAdminOnly`).
+* `PATCH /api/v1/admin/tenant/profile`: Modificación parcial de datos comerciales o contacto (`TenantAdminOnly`).
 * `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única a grandes rasgos (`1:N` vía `category_id`), validando existencia y persistiendo etiquetas dietéticas multifacéticas N:M (`DietaryLabels`: vegano, sin TACC, bebidas con/sin alcohol).
 * `PUT /api/v1/admin/items/{id}`: Modificación completa de atributos del plato (precio, categoría, descripción, modificadores y etiquetas dietéticas) con invalidación CDN (`TenantAdminOnly`).
 * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades del plato con reintento concurrente (`TenantAdminOnly`).
