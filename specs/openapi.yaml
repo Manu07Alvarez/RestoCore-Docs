@@ -110,6 +110,20 @@ paths:
           description: Hash de versión previo del cliente para validación condicional 304
           schema:
             type: string
+        - name: dietary_labels
+          in: query
+          required: false
+          description: >
+            Filtro opcional para comensales por una o más etiquetas dietéticas (relación N:M).
+            Permite combinar filtros concurrentes (ejemplo: vegano y sin TACC / celiac_safe,
+            o discriminar bebidas sin alcohol / alcohol_free).
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: false
+          example: [celiac_safe, vegan]
       responses:
         '200':
           description: Carta gastronómica recuperada exitosamente
@@ -299,10 +313,43 @@ paths:
           description: URL generada exitosamente
 
   /api/v1/admin/categories:
+    get:
+      tags:
+        - Admin - Catalog
+      summary: Listar todas las categorías de menú del restaurante
+      description: >
+        Retorna la lista ordenada de categorías correspondientes al tenant activo autenticado.
+      operationId: getAdminCategories
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de categorías obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryDetailDto'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
     post:
       tags:
         - Admin - Catalog
       summary: Crear nueva categoría de menú
+      description: >
+        Registra una nueva categoría de menú para el tenant activo.
       operationId: createCategory
       security:
         - BearerAuth: []
@@ -311,22 +358,234 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                  example: Entradas
-                sort_order:
-                  type: integer
-                  example: 1
-                is_visible:
-                  type: boolean
-                  default: true
+              $ref: '#/components/schemas/CreateCategoryRequest'
       responses:
         '201':
           description: Categoría creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDetailDto'
+        '400':
+          description: Solicitud con estructura de datos inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/categories/{id}:
+    get:
+      tags:
+        - Admin - Catalog
+      summary: Obtener detalle de categoría de menú
+      description: >
+        Obtiene los datos de una categoría específica perteneciente al tenant activo.
+      operationId: getAdminCategoryById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la categoría
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle de categoría obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDetailDto'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Categoría no encontrada en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    put:
+      tags:
+        - Admin - Catalog
+      summary: Modificación total de categoría de menú
+      description: >
+        Actualiza completamente los datos de una categoría existente (nombre, descripción,
+        orden de visualización y estado de visibilidad). Invalida la caché perimetral en la CDN.
+      operationId: updateCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la categoría
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Categoría actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDetailDto'
+        '400':
+          description: Datos de solicitud inválidos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    patch:
+      tags:
+        - Admin - Catalog
+      summary: Modificación parcial de categoría de menú
+      description: >
+        Actualiza atributos específicos de una categoría (como orden posicional o alternar visibilidad).
+      operationId: patchCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la categoría
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchCategoryRequest'
+      responses:
+        '200':
+          description: Categoría actualizada parcialmente con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDetailDto'
+        '400':
+          description: Datos inválidos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    delete:
+      tags:
+        - Admin - Catalog
+      summary: Eliminación de categoría de menú
+      description: >
+        Elimina la categoría especificada. Si la categoría contiene platos gastronómicos asociados
+        (activos o en baja suave), el sistema bloquea la eliminación retornando HTTP 409 Conflict
+        para salvaguardar la integridad referencial (ON DELETE RESTRICT) e impedir platos huérfanos.
+      operationId: deleteCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único de la categoría a eliminar
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Categoría eliminada exitosamente
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflicto - La categoría tiene platos asociados y no puede ser eliminada
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/admin/items:
     post:
@@ -710,6 +969,121 @@ paths:
         '400':
           description: Evento o parámetros inválidos
 
+  /api/v1/admin/tenant/profile:
+    get:
+      tags:
+        - Admin - Restaurant Profile
+      summary: Consultar perfil e información de contacto del restaurante
+      description: >
+        Retorna la información administrativa y pública del establecimiento (nombre comercial,
+        teléfono de contacto, dirección física y horarios de atención al público).
+      operationId: getTenantProfile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Perfil del restaurante obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantProfileDto'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    put:
+      tags:
+        - Admin - Restaurant Profile
+      summary: Modificación total del perfil e información de contacto del restaurante
+      description: >
+        Actualiza completamente los datos del restaurante (nombre del restaurante, teléfono,
+        dirección y horarios de atención). Invalida la caché perimetral de la carta pública en la CDN.
+      operationId: updateTenantProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantProfileRequest'
+      responses:
+        '200':
+          description: Perfil del restaurante actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantProfileDto'
+        '400':
+          description: Datos de perfil inválidos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    patch:
+      tags:
+        - Admin - Restaurant Profile
+      summary: Modificación parcial del perfil del restaurante
+      description: >
+        Permite modificar campos puntuales (ejemplo: cambiar únicamente el nombre comercial del restaurante,
+        el número de teléfono o la dirección física) sin tener que reenviar el objeto completo.
+      operationId: patchTenantProfile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTenantProfileRequest'
+      responses:
+        '200':
+          description: Perfil modificado parcialmente con éxito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantProfileDto'
+        '400':
+          description: Datos inválidos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
   /healthz:
     get:
       tags:
@@ -776,6 +1150,21 @@ components:
         name:
           type: string
           example: Parrilla Don Pepe
+        phone_number:
+          type: string
+          nullable: true
+          description: Número telefónico o WhatsApp de contacto del local
+          example: "+54 11 4567-8901"
+        address:
+          type: string
+          nullable: true
+          description: Dirección física del establecimiento gastronómico
+          example: "Av. Corrientes 1234, CABA"
+        business_hours:
+          type: string
+          nullable: true
+          description: Horarios de atención al público
+          example: "Lunes a Domingo de 12:00 a 00:00 hs"
         branding:
           $ref: '#/components/schemas/BrandingConfig'
         layout_config:
@@ -918,8 +1307,21 @@ components:
           example: 1
         dietary_labels:
           type: array
+          description: >
+            Etiquetas dietéticas y de clasificación de alimentos/bebidas asociadas bajo relación N:M.
+            Permite combinar múltiples condiciones (ejemplo: alimento vegano y sin TACC simultáneamente,
+            o bebidas clasificadas como alcohol_free o contains_alcohol).
           items:
             type: string
+            enum:
+              - celiac_safe
+              - vegan
+              - vegetarian
+              - dairy_free
+              - nut_free
+              - sugar_free
+              - alcohol_free
+              - contains_alcohol
           example: [celiac_safe, vegan]
         allergens:
           type: array
@@ -962,6 +1364,7 @@ components:
           example: 1
         dietary_labels:
           type: array
+          description: Etiquetas dietéticas N:M asociadas al ítem (ej. vegano y sin TACC, o bebida sin alcohol)
           items:
             type: string
           example: [celiac_safe, vegan]
@@ -1002,9 +1405,10 @@ components:
           example: 1
         dietary_labels:
           type: array
+          description: Conjunto actualizado de etiquetas dietéticas N:M
           items:
             type: string
-          example: [celiac_safe]
+          example: [celiac_safe, vegan]
         allergens:
           type: array
           items:
@@ -1033,8 +1437,10 @@ components:
           type: integer
         dietary_labels:
           type: array
+          description: Actualización opcional de etiquetas dietéticas N:M
           items:
             type: string
+          example: [alcohol_free]
         allergens:
           type: array
           items:
@@ -1345,6 +1751,170 @@ components:
           example: el-gato-negro
         user:
           $ref: '#/components/schemas/UserProfileResponse'
+
+    CategoryDetailDto:
+      type: object
+      required:
+        - id
+        - name
+        - sort_order
+        - is_visible
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Platos Principales
+        description:
+          type: string
+          nullable: true
+          example: Especialidades de la casa y carnes a la parrilla
+        sort_order:
+          type: integer
+          example: 1
+        is_visible:
+          type: boolean
+          example: true
+
+    CreateCategoryRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Platos Principales
+        description:
+          type: string
+          nullable: true
+          example: Especialidades de la casa y carnes a la parrilla
+        sort_order:
+          type: integer
+          default: 0
+          example: 1
+        is_visible:
+          type: boolean
+          default: true
+          example: true
+
+    UpdateCategoryRequest:
+      type: object
+      required:
+        - name
+        - sort_order
+        - is_visible
+      properties:
+        name:
+          type: string
+          example: Platos Principales y Especiales
+        description:
+          type: string
+          nullable: true
+          example: Carnes a la parrilla y especialidades de autor
+        sort_order:
+          type: integer
+          example: 1
+        is_visible:
+          type: boolean
+          example: true
+
+    PatchCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+        is_visible:
+          type: boolean
+
+    TenantProfileDto:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Nombre comercial del restaurante
+          example: Parrilla Don Pepe
+        slug:
+          type: string
+          example: don-pepe
+        phone_number:
+          type: string
+          nullable: true
+          description: Teléfono o WhatsApp de atención al cliente
+          example: "+54 11 4567-8901"
+        address:
+          type: string
+          nullable: true
+          description: Dirección física del local gastronómico
+          example: "Av. Corrientes 1234, CABA"
+        business_hours:
+          type: string
+          nullable: true
+          description: Horarios de atención al público
+          example: "Lunes a Domingo de 12:00 a 00:00 hs"
+        custom_domain:
+          type: string
+          nullable: true
+          example: "menu.donpepe.com"
+        status:
+          type: string
+          example: "Active"
+
+    UpdateTenantProfileRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Nombre comercial del restaurante
+          example: Parrilla Don Pepe & Asador
+        phone_number:
+          type: string
+          nullable: true
+          description: Teléfono o WhatsApp de atención al cliente
+          example: "+54 11 4567-8901"
+        address:
+          type: string
+          nullable: true
+          description: Dirección física del local
+          example: "Av. Corrientes 1234, CABA"
+        business_hours:
+          type: string
+          nullable: true
+          description: Horarios de apertura y cierre
+          example: "Lunes a Domingo de 12:00 a 00:00 hs"
+
+    PatchTenantProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Nombre comercial del restaurante
+        phone_number:
+          type: string
+          nullable: true
+          description: Teléfono o WhatsApp de contacto
+        address:
+          type: string
+          nullable: true
+          description: Dirección física del establecimiento
+        business_hours:
+          type: string
+          nullable: true
+          description: Horarios de atención al público
 
 
 

@@ -47,14 +47,16 @@ Si el sistema permitiera una eliminación física destructiva (`HARD DELETE` a n
 
 Se adopta la **Opción 3: Implementar exclusivamente Baja Suave (Soft Delete) con retención de 7 días sobre platos, respaldada por Snapshots Inmutables en las líneas de pedido, purga física automatizada y avisos explicativos no técnicos**.
 
-### 1. Modelo Relacional de Catálogo (Relación 1:N Platos y Categorías)
+### 1. Modelo Relacional de Catálogo (Categorías 1:N y DietaryLabels N:M)
 
-Se define una asociación unívoca **1:N** entre categorías y platos mediante clave foránea obligatoria `category_id`. Se evaluó la alternativa N:M (múltiples categorías por plato mediante tabla intermedia `dish_categories`), pero se descartó para el MVP debido a que la relación 1:N previene inconsistencias de precios, simplifica la ordenación jerárquica en el menú y optimiza la serialización y caching perimetral en CDN (< 2s LCP).
+Se define una arquitectura de datos diferenciada según la semántica de negocio:
+1. **Categorías como Taxonomía a Grandes Rasgos (Relación 1:N):** Las categorías operan como agrupadores macro de primer nivel (ejemplo: "Entradas", "Platos Principales", "Bebidas", "Postres"). Cada plato pertenece de forma unívoca a una única categoría mediante clave foránea obligatoria `category_id`.
+2. **Etiquetas Dietéticas y de Bebidas (`DietaryLabels` - Relación N:M):** Dimensión transversal y ortogonal que cumple formalmente una cardinalidad **Muchos a Muchos (N:M)**. Un producto puede satisfacer múltiples condiciones simultáneamente (ejemplo: un alimento vegano y sin TACC / `celiac_safe` a la vez), o clasificar bebidas como sin alcohol (`alcohol_free`) o con alcohol (`contains_alcohol`). Asimismo, cada etiqueta se asocia a múltiples productos. En PostgreSQL se implementa mediante array relacional `dietary_labels TEXT[]` indexado con **GIN** para permitir consultas de intersección de alto rendimiento (`WHERE dietary_labels @> ARRAY['vegan', 'celiac_safe']`) cumpliendo el presupuesto LCP (< 2s).
 
 #### Estructura DDL en PostgreSQL
 
 ```sql
--- Tabla de Categorías de Menú
+-- Tabla de Categorías de Menú (Agrupación a Grandes Rasgos)
 CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
@@ -91,6 +93,9 @@ CREATE INDEX idx_dishes_active_tenant ON dishes (tenant_id, category_id, display
 
 CREATE INDEX idx_dishes_purge_candidates ON dishes (deleted_at) 
     WHERE is_deleted = true;
+
+-- Índice GIN para consultas eficientes de intersección N:M de etiquetas dietéticas
+CREATE INDEX idx_dishes_dietary_labels_gin ON dishes USING GIN (dietary_labels);
 ```
 
 ### 2. Snapshots Inmutables en Líneas de Pedido (Auditoría Contable)
