@@ -51,6 +51,15 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `GET /api/v1/admin/tenant/profile`: Consulta de perfil comercial e información de contacto (nombre, teléfono, dirección, horarios) (`TenantAdminOnly`).
 * `PUT /api/v1/admin/tenant/profile`: Modificación completa del perfil comercial y contacto con invalidación CDN (`TenantAdminOnly`).
 * `PATCH /api/v1/admin/tenant/profile`: Modificación parcial de datos comerciales o contacto (`TenantAdminOnly`).
+* GET /api/v1/admin/permissions: Consulta de catálogo maestro de privilegios atómicos (TenantAdminOnly).
+* GET /api/v1/admin/roles: Listado de roles del restaurante y privilegios (TenantAdminOnly).
+* POST /api/v1/admin/roles: Creación de roles personalizados con privilegios dinámicos a medida (OwnerOnly).
+* GET /api/v1/admin/roles/{id}: Detalle de rol y privilegios (TenantAdminOnly).
+* PUT /api/v1/admin/roles/{id}: Modificación completa de rol y privilegios (OwnerOnly).
+* PATCH /api/v1/admin/roles/{id}: Modificación parcial de rol (OwnerOnly).
+* DELETE /api/v1/admin/roles/{id}: Eliminación de rol personalizado con validación de colaboradores asociados (OwnerOnly).
+* GET /api/v1/admin/staff/{user_id}/roles: Consulta de roles ostentados por un colaborador (TenantAdminOnly).
+* PUT /api/v1/admin/staff/{user_id}/roles: Asignación o revocación de roles a miembros del personal (OwnerOnly).
 * `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única a grandes rasgos (`1:N` vía `category_id`), validando existencia y persistiendo etiquetas dietéticas multifacéticas N:M (`DietaryLabels`: vegano, sin TACC, bebidas con/sin alcohol).
 * `PUT /api/v1/admin/items/{id}`: Modificación completa de atributos del plato (precio, categoría, descripción, modificadores y etiquetas dietéticas) con invalidación CDN (`TenantAdminOnly`).
 * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades del plato con reintento concurrente (`TenantAdminOnly`).

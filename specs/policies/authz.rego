@@ -31,8 +31,8 @@ allow {
 }
 
 # -----------------------------------------------------------------------------
-# 3. Dueño / Administrador de Tenant (`owner` / `tenant_admin`)
-# Gestión total dentro de su propio restaurante (Aislamiento Multi-Tenant)
+# 3. Dueño / Administrador Principal (`owner` / `tenant_admin`)
+# Gestión total dentro de su propio restaurante y administración de roles/permisos
 # -----------------------------------------------------------------------------
 allow {
     input.user.tenant_id == input.resource.tenant_id
@@ -53,9 +53,20 @@ allow {
         "generate_presigned_url",
         "read_metrics",
         "manage_staff",
+        "manage_roles",
         "read_orders",
         "manage_orders"
     ]
+}
+
+# -----------------------------------------------------------------------------
+# 3.1. Evaluación Basada en Privilegios Dinámicos (Custom RBAC)
+# Otorga acceso a cualquier acción requerida si el usuario posee dicho privilegio
+# asignado a través de sus roles personalizados (input.user.permissions)
+# -----------------------------------------------------------------------------
+allow {
+    input.user.tenant_id == input.resource.tenant_id
+    input.action in input.user.permissions
 }
 
 # -----------------------------------------------------------------------------

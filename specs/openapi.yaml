@@ -1084,6 +1084,425 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
 
+  /api/v1/admin/permissions:
+    get:
+      tags:
+        - Admin - Staff & Roles
+      summary: Listar catálogo maestro de privilegios del sistema
+      description: >
+        Retorna la lista de todos los privilegios atómicos y granulares disponibles en la plataforma
+        para asignación en roles personalizados (ej. `manage_menu`, `manage_prices`, `read_reports`, etc.).
+      operationId: getSystemPermissions
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Catálogo de privilegios obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionDto'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado (Requiere rol owner o permiso manage_roles)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/roles:
+    get:
+      tags:
+        - Admin - Staff & Roles
+      summary: Listar roles configurados para el restaurante
+      description: >
+        Retorna todos los roles definidos para el tenant activo, incluyendo roles del sistema
+        y roles personalizados creados por el administrador con sus privilegios asociados.
+      operationId: getRoles
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Listado de roles obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleDto'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    post:
+      tags:
+        - Admin - Staff & Roles
+      summary: Crear nuevo rol personalizado para el restaurante
+      description: >
+        Permite al dueño o administrador principal crear un nuevo rol personalizado dentro de su tenant
+        y asignarle un conjunto granular de privilegios específicos.
+      operationId: createRole
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Rol creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDto'
+        '400':
+          description: Solicitud con formato inválido o privilegios inexistentes
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflicto - Ya existe un rol con ese nombre para este restaurante
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/roles/{id}:
+    get:
+      tags:
+        - Admin - Staff & Roles
+      summary: Obtener detalle de un rol
+      description: >
+        Retorna la información de un rol específico perteneciente al tenant activo junto con sus privilegios.
+      operationId: getRoleById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del rol
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del rol obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDto'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Rol no encontrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    put:
+      tags:
+        - Admin - Staff & Roles
+      summary: Modificación total de un rol y sus privilegios
+      description: >
+        Actualiza el nombre, descripción y la totalidad de los privilegios asignados al rol.
+        Los roles base inmutables del sistema (`owner`) no pueden ser redefinidos ni despojados de privilegios.
+      operationId: updateRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del rol
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: Rol y privilegios actualizados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDto'
+        '400':
+          description: Solicitud inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado (o intento de alterar rol inmutable del sistema)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Rol no encontrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    patch:
+      tags:
+        - Admin - Staff & Roles
+      summary: Modificación parcial de un rol
+      description: >
+        Permite actualizar parcialmente campos de un rol o alternar su estado activo/inactivo.
+      operationId: patchRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del rol
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchRoleRequest'
+      responses:
+        '200':
+          description: Rol modificado parcialmente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDto'
+        '400':
+          description: Datos inválidos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Rol no encontrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    delete:
+      tags:
+        - Admin - Staff & Roles
+      summary: Eliminar o remover rol de restaurante
+      description: >
+        Elimina un rol personalizado del tenant. Si el rol es un rol protegido del sistema (`is_system = true`)
+        o si posee miembros del personal asignados activamente, la solicitud es rechazada con HTTP 409 Conflict.
+      operationId: deleteRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del rol a eliminar
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Rol eliminado exitosamente
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Rol no encontrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Conflicto - Rol del sistema inmutable o con usuarios asignados
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/staff/{user_id}/roles:
+    get:
+      tags:
+        - Admin - Staff & Roles
+      summary: Consultar roles y privilegios de un miembro del personal
+      description: >
+        Retorna la asignación actual de roles de un empleado del restaurante.
+      operationId: getStaffUserRoles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Identificador único del usuario miembro del personal
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Asignación de roles obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleDto'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    put:
+      tags:
+        - Admin - Staff & Roles
+      summary: Asignar o revocar roles a un miembro del personal
+      description: >
+        Actualiza el conjunto de roles asignados a un colaborador del restaurante. Otorga o remueve
+        los privilegios asociados correspondientes.
+      operationId: assignStaffUserRoles
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Identificador único del usuario del personal
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignUserRolesRequest'
+      responses:
+        '200':
+          description: Roles actualizados exitosamente para el usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleDto'
+        '400':
+          description: Solicitud inválida
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Usuario o rol no encontrado en el tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
   /healthz:
     get:
       tags:
@@ -1915,6 +2334,125 @@ components:
           type: string
           nullable: true
           description: Horarios de atención al público
+
+    PermissionDto:
+      type: object
+      required:
+        - key
+        - name
+        - description
+        - category
+      properties:
+        key:
+          type: string
+          description: Clave única identificadora de la acción/privilegio
+          example: manage_menu
+        name:
+          type: string
+          example: Gestión de Carta y Catálogo
+        description:
+          type: string
+          example: Permite crear, modificar y reorganizar categorías y platos gastronómicos
+        category:
+          type: string
+          enum: [menu, pricing, orders, kitchen, staff, analytics, configuration]
+          example: menu
+
+    RoleDto:
+      type: object
+      required:
+        - id
+        - name
+        - is_system
+        - permissions
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Jefe de Cocina
+        description:
+          type: string
+          nullable: true
+          example: Encargado de cocina con acceso a KDS y control de stock
+        is_system:
+          type: boolean
+          description: Indica si es un rol predeterminado del sistema (inmutable para eliminación)
+          example: false
+        permissions:
+          type: array
+          description: Lista de claves de privilegios asignadas al rol
+          items:
+            type: string
+          example: ["read_kitchen_orders", "update_order_status", "manage_dish_availability"]
+
+    CreateRoleRequest:
+      type: object
+      required:
+        - name
+        - permissions
+      properties:
+        name:
+          type: string
+          example: Maitre / Encargado de Salón
+        description:
+          type: string
+          nullable: true
+          example: Supervisión de comandas, mesas y métricas de salón
+        permissions:
+          type: array
+          description: Conjunto de claves de privilegios atómicos a otorgar
+          items:
+            type: string
+          example: ["read_tables", "create_order", "read_orders", "manage_orders", "read_metrics"]
+
+    UpdateRoleRequest:
+      type: object
+      required:
+        - name
+        - permissions
+      properties:
+        name:
+          type: string
+          example: Maitre Principal
+        description:
+          type: string
+          nullable: true
+          example: Supervisión integral de comandas, mesas y métricas de salón
+        permissions:
+          type: array
+          description: Lista completa de privilegios actualizados para el rol
+          items:
+            type: string
+          example: ["read_tables", "create_order", "read_orders", "manage_orders", "read_metrics"]
+
+    PatchRoleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        permissions:
+          type: array
+          items:
+            type: string
+
+    AssignUserRolesRequest:
+      type: object
+      required:
+        - role_ids
+      properties:
+        role_ids:
+          type: array
+          description: Identificadores únicos (UUID) de los roles que ostentará el usuario
+          items:
+            type: string
+            format: uuid
+          example: ["3fa85f64-5717-4562-b3fc-2c963f66afa6"]
+
 
 
 

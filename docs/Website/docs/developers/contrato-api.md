@@ -34,6 +34,15 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
    * `GET /api/v1/admin/tenant/profile`: Consulta de los datos comerciales y de contacto del restaurante (nombre, teléfono, dirección, horarios).
    * `PUT /api/v1/admin/tenant/profile`: Modificación total de los datos comerciales y de contacto del restaurante (invalida caché CDN).
    * `PATCH /api/v1/admin/tenant/profile`: Modificación parcial de los datos de contacto o nombre del restaurante.
+   * `GET /api/v1/admin/permissions`: Consulta del catálogo maestro de privilegios atómicos del sistema (`manage_menu`, `manage_prices`, `read_reports`, `manage_tables`, `read_kitchen_orders`, `manage_roles`, etc.).
+   * `GET /api/v1/admin/roles`: Listado de roles del restaurante (roles de sistema y roles personalizados).
+   * `POST /api/v1/admin/roles`: Creación de roles personalizados con asignación a medida de privilegios por parte del dueño.
+   * `GET /api/v1/admin/roles/{id}`: Detalle de rol y privilegios asociados.
+   * `PUT /api/v1/admin/roles/{id}`: Modificación completa de un rol y su conjunto de privilegios.
+   * `PATCH /api/v1/admin/roles/{id}`: Modificación parcial de atributos del rol.
+   * `DELETE /api/v1/admin/roles/{id}`: Baja de rol personalizado con bloqueo (`409 Conflict` si es un rol de sistema o si tiene colaboradores asignados).
+   * `GET /api/v1/admin/staff/{user_id}/roles`: Consulta de roles y privilegios ostentados por un colaborador.
+   * `PUT /api/v1/admin/staff/{user_id}/roles`: Asignación o revocación de roles a un miembro del personal del restaurante.
    * `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única (`1:N` vía `category_id`), con asignación múltiple de etiquetas dietéticas N:M (`dietary_labels`: vegano, sin TACC, bebida sin alcohol, etc.) y alérgenos. Retorna `422 Unprocessable Entity` si la categoría no existe en el tenant.
    * `PUT /api/v1/admin/items/{id}`: Modificación total de los datos de un plato existente (precio, categoría, descripción, modificadores y etiquetas dietéticas N:M). Invalida la caché perimetral en la CDN.
    * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades específicas del plato (disponibilidad, deltas de precio, actualización de etiquetas dietéticas N:M o cambio de categoría).
@@ -55,12 +64,17 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
 
 Las políticas de autorización están desacopladas del backend y se especifican en sintaxis Rego dentro de `specs/policies/authz.rego` (`ADR-0006`):
 
-### Matriz de Jerarquía de Roles y Visión Limitada
+### Evaluación de Privilegios Dinámicos (Custom RBAC)
+El sistema soporta tanto roles base inmutables del sistema (owner, super_admin) como roles dinámicos configurables por el dueño de cada restaurante:
+* **Resolución Dinámica:** Para cualquier solicitud protegida, el motor OPA evalúa si la acción requerida (input.action) se encuentra presente dentro del conjunto de privilegios consolidados del usuario (input.action in input.user.permissions), garantizando que los roles personalizados creados por el administrador surtan efecto inmediato sin reiniciar servicios ni modificar código de autorización.
 
-| Rol / Actor | Lectura Pública Menú | CRUD Catálogo & Precios | Archivar / Restaurar Platos | Gestión Branding & QR | Gestión Lienzo (Canvas) | Publicar Menú & AOT | Ver KDS / Comandas | Cambiar Stock Cocina |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Cliente Anónimo** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado |
-| **Dueño (`owner`)** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |
-| **Cocinero (`cook`)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Autorizado | Autorizado |
-| **Mozo (`waiter`)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Autorizado | Denegado |
-| **SuperAdmin** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |
+### Matriz de Jerarquía de Roles y Privilegios Base
+
+| Rol / Actor | Lectura Pública Menú | CRUD Catálogo & Precios | Archivar / Restaurar Platos | Gestión Branding & QR | Gestión Lienzo (Canvas) | Publicar Menú & AOT | Crear / Gestionar Roles | Ver KDS / Comandas | Cambiar Stock Cocina |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Cliente Anónimo** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado |
+| **Dueño (owner)** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |
+| **Rol Personalizado** | Autorizado | Según Privilegio | Según Privilegio | Según Privilegio | Según Privilegio | Según Privilegio | Según Privilegio | Según Privilegio | Según Privilegio |
+| **Cocinero (cook)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado | Autorizado | Autorizado |
+| **Mozo (waiter)** | Autorizado | Denegado | Denegado | Denegado | Denegado | Denegado | Denegado | Autorizado | Denegado |
+| **SuperAdmin** | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado | Autorizado |

@@ -106,6 +106,18 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 * **[EARS-TENANT-002] (Ubiquitous):**
   El sistema DEBERÁ exponer los atributos de contacto (`phone_number`, `address`, `business_hours`) en el contrato de la carta digital pública (`GET /api/v1/tenants/{tenant_slug}/menu`) para consulta directa del comensal.
 
+### 4.6. Gestión de Roles Personalizados y Privilegios Dinámicos (Custom RBAC)
+* **[EARS-RBAC-001] (Event-Driven):**
+  CUANDO el dueño o administrador principal cree o modifique un rol (`POST` o `PUT /api/v1/admin/roles`), el sistema DEBERÁ asociar el rol al tenant activo y persistir el conjunto de privilegios atómicos seleccionados del catálogo maestro.
+* **[EARS-RBAC-002] (Unwanted Behavior):**
+  SI el administrador solicita la eliminación de un rol base del sistema (`is_system == true`) o un rol que posee colaboradores activos asignados (`DELETE /api/v1/admin/roles/{id}`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict.
+* **[EARS-RBAC-003] (Event-Driven):**
+  CUANDO el administrador asigne o revoque roles a un miembro del personal (`PUT /api/v1/admin/staff/{user_id}/roles`), el sistema DEBERÁ actualizar inmediatamente la asociación y recalcular los permisos consolidados del usuario.
+* **[EARS-RBAC-004] (State-Driven):**
+  MIENTRAS un colaborador posea un privilegio específico en su lista de permisos consolidados (`input.action in input.user.permissions`), el motor OPA DEBERÁ autorizar la ejecución de la operación solicitada.
+* **[EARS-RBAC-005] (Unwanted Behavior):**
+  SI un usuario autenticado intenta ejecutar una acción para la cual no cuenta con el privilegio correspondiente en ninguno de sus roles asignados, ENTONCES el sistema DEBERÁ denegar el acceso con código HTTP 403 Forbidden.
+
 ---
 
 ## 5. Requisitos de Jerarquía de Métricas Analíticas y Telemetría de Menú
@@ -165,6 +177,11 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-CAT-004**  | Event-Driven | Catalog / Category Service | Test de eliminación exitosa `DELETE /categories/{id}` sin ítems |
 | **EARS-TENANT-001**| Event-Driven | Tenant / Profile Service | Test de actualización de datos de contacto y nombre de restaurante |
 | **EARS-TENANT-002**| Ubiquitous | Public Menu / Aggregator | Test de exposición de teléfono, dirección y horarios en carta QR |
+| **EARS-RBAC-001**  | Event-Driven | Staff & Roles / RBAC Engine | Test de creación y mutación de rol con privilegios `POST /roles` |
+| **EARS-RBAC-002**  | Unwanted Behavior | Staff & Roles / Guard | Test de rechazo 409 al borrar rol de sistema o con usuarios |
+| **EARS-RBAC-003**  | Event-Driven | Staff & Roles / User Roles | Test de asignación de roles a miembros del personal |
+| **EARS-RBAC-004**  | State-Driven | Security / OPA Evaluator | Test de evaluación positiva de privilegios consolidados |
+| **EARS-RBAC-005**  | Unwanted Behavior | Security / OPA Evaluator | Test de denegación 403 por falta de privilegio en rol |
 | **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
 | **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
 | **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |

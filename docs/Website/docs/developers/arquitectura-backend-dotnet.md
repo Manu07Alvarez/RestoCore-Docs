@@ -131,6 +131,15 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Perfil Admin** | `GET` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 401, 403 | Consulta de información comercial y contacto (nombre, teléfono, dirección, horarios). |
 | **Perfil Admin** | `PUT` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 400, 401, 403 | Modificación completa del perfil comercial e información de contacto con invalidación CDN. |
 | **Perfil Admin** | `PATCH` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 400, 401, 403 | Modificación parcial del perfil o contacto del restaurante. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/permissions` | `TenantAdminOnly` | 200, 401, 403 | Catálogo maestro de privilegios del sistema. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/roles` | `TenantAdminOnly` | 200, 401, 403 | Listado de roles configurados para el restaurante. |
+| **Roles & Staff** | `POST` | `/api/v1/admin/roles` | `OwnerOnly` | 201, 400, 401, 403, 409 | Creación de rol personalizado con privilegios a medida. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/roles/{id}` | `TenantAdminOnly` | 200, 401, 403, 404 | Detalle de rol y privilegios asociados. |
+| **Roles & Staff** | `PUT` | `/api/v1/admin/roles/{id}` | `OwnerOnly` | 200, 400, 401, 403, 404 | Modificación completa de rol y privilegios. |
+| **Roles & Staff** | `PATCH` | `/api/v1/admin/roles/{id}` | `OwnerOnly` | 200, 400, 401, 403, 404 | Modificación parcial de rol. |
+| **Roles & Staff** | `DELETE`| `/api/v1/admin/roles/{id}` | `OwnerOnly` | 204, 401, 403, 404, 409 | Eliminación de rol personalizado con bloqueo si tiene personal asignado. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/staff/{user_id}/roles` | `TenantAdminOnly` | 200, 401, 403, 404 | Consulta de roles ostentados por un colaborador. |
+| **Roles & Staff** | `PUT` | `/api/v1/admin/staff/{user_id}/roles` | `OwnerOnly` | 200, 400, 401, 403, 404 | Asignación y revocación de roles a miembros del personal. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items` | `TenantAdminOnly` | 201, 400, 401, 403, 422 | Alta de platos asociados unívocamente a una categoría (1:N vía `category_id`), con etiquetas dietéticas (`DietaryLabels`). |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación total del plato con validación relacional e invalidación CDN. |
 | **Catálogo Admin** | `PATCH` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación parcial de propiedades individuales del plato. |
