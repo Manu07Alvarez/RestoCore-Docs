@@ -14,9 +14,12 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 
 ### Funcionalidades Incluidas (In-Scope - MVP)
 * **Gestión de Menú y Categorías:** Crear, editar, reordenar y ocultar categorías y platos gastronómicos.
+  * **ABMC Completo de Categorías:** Alta, baja, modificación total (`PUT`), modificación parcial (`PATCH`) y consulta detallada/listado (`GET`) de categorías del menú.
+    * Bloqueo relacional de baja: Si una categoría contiene platos asociados (activos o en baja suave), la operación de eliminación es rechazada con HTTP 409 Conflict para preservar la integridad referencial (`ON DELETE RESTRICT`) e impedir platos huérfanos.
   * **Modificación Total y Parcial de Platos:** Soportar operaciones de actualización completa (`PUT`) y modificación parcial de atributos (`PATCH`), incluyendo nombre, descripción, precio base, disponibilidad, imagen, modificadores y etiquetas dietéticas.
-  * **Relación Estructural 1:N (Platos y Categorías):** Definir una asociación estricta de un plato a una categoría única (`1:N`) mediante clave foránea obligatoria `category_id`. Esta cardinalidad unívoca previene ambigüedades en la navegación y maximiza la eficiencia del caching perimetral en CDN sin la sobrecarga relacional de tablas intermedias.
-  * **Etiquetas Dietéticas (`DietaryLabels`):** Retener el catálogo estructurado de etiquetas dietéticas y alérgenos (`celiac_safe`, `vegan`, `vegetarian`, `dairy_free`, `nut_free`, etc.) tanto en contratos de API como en persistencia para informar adecuadamente a los comensales.
+  * **Categorías como Taxonomía a Grandes Rasgos (Relación 1:N):** Las categorías operan como definiciones macro a grandes rasgos para la organización general de la carta (ejemplo: "Entradas", "Platos Principales", "Bebidas", "Postres"). Cada plato pertenece de forma unívoca a una única categoría (`1:N`) mediante la clave foránea `category_id`.
+  * **Etiquetas Dietéticas y de Bebidas (`DietaryLabels` - Relación N:M):** Sistema de clasificación ortogonal con cardinalidad Muchos a Muchos (`N:M`). Un alimento o producto puede satisfacer simultáneamente múltiples condiciones dietéticas (por ejemplo, ser a la vez vegano y sin TACC / `celiac_safe`), mientras que para el rubro de bebidas permite identificar explícitamente si son sin alcohol (`alcohol_free`) o con alcohol (`contains_alcohol`). A su vez, una misma etiqueta dietética se vincula a múltiples platos y bebidas del menú.
+    * Catálogo base de etiquetas: `celiac_safe` (Sin TACC / Apto Celíacos), `vegan` (Vegano), `vegetarian` (Vegetariano), `dairy_free` (Sin Lácteos), `nut_free` (Sin Frutos Secos), `alcohol_free` (Bebida Sin Alcohol), `contains_alcohol` (Bebida Con Alcohol), `sugar_free` (Sin Azúcar).
 * **Política de Baja Suave (Soft Delete) y Ventana de Retención de 7 Días:**
   * Los platos eliminados por el usuario se marcan con fecha de baja (`deleted_at`) y se ocultan inmediatamente de la carta pública.
   * Se establece una ventana de gracia de 7 días (1 semana) donde el plato permanece en estado archivado y puede ser restaurado desde el panel de administración.
@@ -24,7 +27,17 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 * **Gestión de Modificadores:** Configurar grupos de opciones de personalización (ejemplo: punto de cocción, agregados) con deltas de precio y límites de selección mínima/máxima.
 * **Gestión de Disponibilidad Instantánea:** Marcar platos o categorías como agotados o inactivos en tiempo real.
 * **Gestión de Mesas y Códigos QR:** Crear mesas, asignarlas a sectores/zonas, generar sus tokens de seguridad (`table_token`) y alternar su estado (`active`/`disabled`).
-* **Configuración del Tenant:** Actualizar la marca comercial, logo y paleta de colores del restaurante.
+* **Perfil e Información de Contacto del Restaurante (Tenant Profile):**
+  * Modificación del nombre comercial del restaurante (`name`).
+  * Almacenamiento y exposición de datos útiles de contacto: número de teléfono / WhatsApp (`phone_number`), dirección física del local (`address`) y horarios de atención al público (`business_hours`).
+  * Exposición de dichos datos tanto en el panel administrativo (`GET`, `PUT`, `PATCH /api/v1/admin/tenant/profile`) como en la carta digital pública (`GET /api/v1/tenants/{tenant_slug}/menu`) para consulta directa del comensal.
+* **Gestión de Personal, Roles Personalizados y Privilegios Dinámicos (Custom RBAC):**
+  * **Catálogo Maestro de Privilegios:** Exposición de acciones atómicas y granulares (`manage_menu`, `manage_prices`, `read_reports`, `manage_tables`, `read_kitchen_orders`, `manage_roles`, etc.).
+  * **Creación, Edición y Baja de Roles por el Dueño/Admin:** Permitir al dueño o administrador principal crear nuevos roles de restaurante, nombrandolos libremente y asignándoles los privilegios específicos que desee.
+  * **Protección de Roles Base del Sistema:** Los roles esenciales de plataforma (`owner`, `super_admin`) son inmutables para impedir el bloqueo administrativo accidental.
+  * **Asignación y Revocación de Roles a Empleados:** Asignar o desvincular roles a miembros del personal del restaurante (`PUT /api/v1/admin/staff/{user_id}/roles`), otorgando o retirando sus privilegios en tiempo real.
+  * **Validación de Seguridad Declarativa OPA:** El motor OPA evalúa de forma dinámica los privilegios asignados al usuario autenticado (`input.action in input.user.permissions`), autorizando o denegando las peticiones sin código cableado.
+* **Configuración de Identidad Visual (Branding):** Actualizar la marca comercial, logo, banner y paleta de colores del restaurante.
 * **Carga Asíncrona de Imágenes:** Generación de URLs pre-firmadas para subir fotos de platos y logos directamente a SeaweedFS.
 
 ### Funcionalidades Excluidas (Out-of-Scope)
@@ -55,8 +68,11 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 ## 5. Desglose de Tareas Atómicas (Desarrollo en Paralelo)
 
 ### Tareas de Frontend (`resto-core-front`)
-* Implementar formularios de administración para categorías, platos, modificadores y mesas.
-* Soportar edición total (`PUT`) y edición rápida de campos individuales (`PATCH`) para platos existentes.
+* Implementar formularios de administración para categorías (ABMC completo con reordenamiento), platos, modificadores y mesas.
+* Soportar edición total (`PUT`) y edición rápida de campos individuales (`PATCH`) para categorías y platos existentes.
+* Implementar formulario de configuración de perfil del restaurante: nombre comercial, teléfono/WhatsApp de contacto, dirección física y horarios de atención.
+* Implementar pantalla de administración de roles y permisos: creador de roles con checkboxes para selección múltiple de privilegios atómicos, listado y edición.
+* Implementar panel de gestión de colaboradores: asignación y revocación de roles a miembros del personal con reflejo inmediato de capacidades en la UI.
 * Construir selector de categoría unívoca (`1:N`) y componentes de selección de etiquetas dietéticas (`DietaryLabels`).
 * Desarrollar panel de papelera/recuperación de platos en baja suave con cuenta regresiva de retención de 7 días y acción de restauración.
 * Construir el componente de carga de imágenes integrado con la solicitud de URLs pre-firmadas.
@@ -64,6 +80,14 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 
 ### Tareas de Backend (`resto-core-back`)
 * [x] Diseñar e implementar endpoints REST protegidos: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/admin/categories`, `POST /api/v1/admin/items`, `DELETE /api/v1/admin/items/{id}`, `POST /api/v1/admin/items/{id}/restore`, `GET /api/v1/admin/tables/{id}/qr`, `POST /api/v1/storage/presigned-upload`.
+* [ ] Implementar endpoints de ABMC de categorías: `GET /api/v1/admin/categories`, `GET /api/v1/admin/categories/{id}`, `PUT /api/v1/admin/categories/{id}`, `PATCH /api/v1/admin/categories/{id}`, `DELETE /api/v1/admin/categories/{id}` con validación de restricción relacional (HTTP 409 Conflict si posee platos asociados).
+* [ ] Implementar endpoints de perfil de restaurante: `GET /api/v1/admin/tenant/profile`, `PUT /api/v1/admin/tenant/profile`, `PATCH /api/v1/admin/tenant/profile` para gestión de nombre, teléfono, dirección y horarios.
+* [ ] Implementar endpoints de RBAC y roles personalizados:
+  * `GET /api/v1/admin/permissions`: Retorna catálogo maestro de privilegios granulares.
+  * `GET`, `POST`, `GET /{id}`, `PUT /{id}`, `PATCH /{id}`, `DELETE /{id}` en `/api/v1/admin/roles`: CRUD de roles propios del tenant con privilegios asignados.
+  * `GET` y `PUT /api/v1/admin/staff/{user_id}/roles`: Consulta y asignación de roles a colaboradores.
+* [ ] Integrar evaluación dinámica de permisos en el middleware de autorización OPA (`input.action in input.user.permissions`).
+* [ ] Extender `PublicMenuResponse` y handler de menú público para exponer `phone_number`, `address` y `business_hours` del tenant.
 * [ ] Implementar endpoints REST de modificación de platos: `PUT /api/v1/admin/items/{id}` (modificación total) y `PATCH /api/v1/admin/items/{id}` (modificación parcial de atributos).
 * [ ] Implementar validación relacional estricta: rechazo con HTTP 422/400 si el `category_id` suministrado no existe o no pertenece al tenant activo.
 * [ ] Actualizar flujo de baja suave en `DELETE /api/v1/admin/items/{id}` para registrar `deleted_at = UtcNow` y programar la purga a 7 días.
@@ -77,7 +101,15 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 
 ### Reglas en Sintaxis EARS
 * **Ubiquitous:** El sistema DEBERÁ exigir token JWT válido en el encabezado `Authorization` para todas las solicitudes al módulo de administración.
+* **Event-Driven:** CUANDO el dueño o administrador principal cree o actualice un rol (`POST` o `PUT /api/v1/admin/roles`), el sistema DEBERÁ asociar el rol al tenant activo y persistir el conjunto de privilegios seleccionados.
+* **Unwanted Behavior:** SI el administrador solicita la eliminación de un rol base del sistema (`is_system == true`) o un rol que cuenta con usuarios activos asignados, ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict.
+* **Event-Driven:** CUANDO el administrador asigne o remueva roles a un empleado (`PUT /api/v1/admin/staff/{user_id}/roles`), el sistema DEBERÁ actualizar los privilegios efectivos del usuario de forma inmediata.
+* **State-Driven:** MIENTRAS un usuario autenticado posea un privilegio específico en su lista de permisos consolidados (`input.action in input.user.permissions`), el motor OPA DEBERÁ autorizar la ejecución de la acción solicitada.
+* **Unwanted Behavior:** SI un usuario intenta ejecutar una acción para la cual ninguno de sus roles asignados posee el privilegio requerido, ENTONCES el sistema DEBERÁ rechazar la operación con código HTTP 403 Forbidden.
 * **Event-Driven:** CUANDO el administrador modifique los atributos de un plato, el sistema DEBERÁ validar y actualizar los datos en el catálogo.
+* **Event-Driven:** CUANDO el administrador solicite la modificación total o parcial de una categoría (`PUT` o `PATCH /api/v1/admin/categories/{id}`), el sistema DEBERÁ actualizar los atributos categóricos e invalidar la caché perimetral en CDN.
+* **Unwanted Behavior:** SI el administrador solicita la eliminación de una categoría que posee platos gastronómicos asociados (`DELETE /api/v1/admin/categories/{id}`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict impidiendo la creación de platos huérfanos.
+* **Event-Driven:** CUANDO el administrador modifique el nombre del restaurante o sus datos de contacto (`phone_number`, `address`, `business_hours`), el sistema DEBERÁ actualizar el perfil del tenant e invalidar la caché de la carta pública digital.
 * **Event-Driven:** CUANDO el administrador solicite la eliminación de un plato, el sistema DEBERÁ registrar la marca de tiempo de baja (`deleted_at`), ocultar el plato de la vista pública y programar su purga física para 7 días posteriores.
 * **Event-Driven:** CUANDO transcurra el plazo de 7 días desde la baja suave, el sistema DEBERÁ eliminar definitivamente el registro de la base de datos y sus activos en el almacenamiento.
 * **State-Driven:** MIENTRAS un plato permanezca en periodo de baja suave (menos de 7 días desde `deleted_at`), el sistema DEBERÁ permitir su restauración desde el panel administrativo.
@@ -88,18 +120,60 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 ### Escenarios Gherkin
 
 ```gherkin
-Feature: Administración CRUD de Menú y Ciclo de Vida de Platos
+Feature: Administración CRUD de Menú, Roles Personalizados y Seguridad RBAC
+  Scenario: Creación exitosa de un rol personalizado con privilegios a medida
+    Given que el dueño del restaurante está autenticado con rol "owner"
+    When envía una solicitud POST a "/api/v1/admin/roles" con nombre "Maitre de Turno" y permisos ["read_tables", "create_order", "manage_orders"]
+    Then el sistema DEBERÁ registrar el rol personalizado para el tenant
+    And el rol DEBERÁ contener exactamente los 3 privilegios asignados
+
+  Scenario: Asignación de rol personalizado a un miembro del personal y autorización OPA
+    Given que un empleado tiene asignado el rol "Maitre de Turno" con permiso "create_order"
+    When el empleado envía una comanda a través de la API
+    Then el motor OPA DEBERÁ evaluar "create_order in input.user.permissions" y responder "allow == true"
+    And permitir la creación exitosa de la orden
+
+  Scenario: Denegación de acceso cuando el rol no posee el privilegio requerido
+    Given que un empleado con rol "Maitre de Turno" intenta modificar el precio de un plato
+    When envía una solicitud PUT al catálogo sin poseer el privilegio "manage_prices"
+    Then el motor OPA DEBERÁ responder "allow == false"
+    And el sistema DEBERÁ rechazar la operación con código HTTP 403 Forbidden
+
+  Scenario: Rechazo de eliminación de rol protegido del sistema
+    Given que el administrador intenta eliminar el rol base "owner"
+    When envía una solicitud DELETE a "/api/v1/admin/roles/{id}"
+    Then el sistema DEBERÁ rechazar la operación con código HTTP 409 Conflict
+    And retornar un mensaje indicando que los roles base del sistema son inmutables
+
   Scenario: Modificación exitosa de los datos y etiquetas dietéticas de un plato existente
     Given que el administrador está autenticado con un token JWT válido de su tenant
     When envía una solicitud PUT al endpoint del plato con nuevo precio, descripción y dietary_labels ["celiac_safe", "vegan"]
     Then el sistema DEBERÁ validar y actualizar los atributos del plato en PostgreSQL
     And el menú público DEBERÁ reflejar los cambios en menos de 500 milisegundos
 
+  Scenario: Asignación de etiquetas dietéticas múltiples y clasificación de bebidas (Relación N:M)
+    Given que el administrador registra un ítem en la categoría "Bebidas"
+    When asigna las etiquetas dietéticas ["alcohol_free", "sugar_free"]
+    Then el sistema DEBERÁ asociar ambas etiquetas al producto mediante la relación N:M
+    And los comensales podrán filtrar la carta por productos veganos, sin TACC o bebidas sin alcohol concurrentemente
+
   Scenario: Intento de asociar un plato a una categoría inexistente
     Given que el administrador intenta crear o actualizar un plato
     When especifica un "category_id" que no existe en el catálogo del tenant
     Then el sistema DEBERÁ rechazar la operación con código HTTP 422 Unprocessable Entity
     And retornar un mensaje indicando que la categoría especificada no es válida
+
+  Scenario: Rechazo de eliminación de categoría con platos asociados
+    Given que una categoría "Entradas" contiene 3 platos activos en el catálogo
+    When el administrador envía una solicitud DELETE al endpoint de la categoría
+    Then el sistema DEBERÁ rechazar la operación con código HTTP 409 Conflict
+    And retornar un mensaje impidiendo la eliminación para proteger la integridad referencial
+
+  Scenario: Actualización de datos útiles de contacto y nombre del restaurante
+    Given que el administrador modifica el nombre del local a "Parrilla Don Pepe & Asador", teléfono "+54 11 4567-8901" y dirección "Av. Corrientes 1234"
+    When envía una solicitud PUT al endpoint de perfil del restaurante
+    Then el sistema DEBERÁ actualizar los datos en la base de datos
+    And la carta QR pública DEBERÁ mostrar la información de contacto actualizada a los comensales
 
   Scenario: Retiro de plato con ventana de retención de 7 días
     Given que el administrador solicita archivar el plato "Hamburguesa Clásica" sin comandas activas en cocina

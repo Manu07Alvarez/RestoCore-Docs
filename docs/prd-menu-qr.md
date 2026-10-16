@@ -15,6 +15,7 @@ Este documento establece las especificaciones funcionales, límites de alcance, 
 
 ### Funcionalidades Incluidas (In-Scope - MVP)
 * **Maquetación Predeterminada Secuencial:** Visualización dinámica estándar del menú estructurada jerárquicamente por categorías (ejemplo: Entradas, Platos Principales, Bebidas, Postres).
+* **Información Pública y Contacto del Establecimiento:** Visualización en cabecera o pie de carta digital de los datos clave del restaurante: nombre comercial (`name`), número telefónico/WhatsApp (`phone_number`), dirección física del local (`address`) y horarios de atención al público (`business_hours`).
 * **Capa Aditiva de Maquetación Visual (Canvas Mode):** Modo visual opcional donde el administrador puede definir una disposición libre de platos sobre un lienzo gráfico, manteniendo intacto el catálogo de datos de negocio.
 * **Editor Visual Interactivo en Panel de Administración:** Herramienta interactiva dentro del CMS para arrastrar, escalar, rotar y posicionar libremente tarjetas o elementos de platos sobre el lienzo.
 * **Personalización de Fondo y Capas:** Configuración de color de fondo o imagen personalizada (subida asíncrona a SeaweedFS) y ordenamiento de profundidad de capas (`z-index`) para cada elemento del lienzo.
