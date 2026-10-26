@@ -42,8 +42,25 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `PUT /api/v1/admin/menu/layout`: Guardado de configuración geométrica de lienzo Canvas en JSONB (`TenantAdminOnly`).
 * `POST /api/v1/admin/menu/publish`: Desencadenamiento del pipeline AOT y purgado CDN con retorno HTTP 202 Accepted (`TenantAdminOnly`).
 * `POST /api/v1/storage/presigned-upload`: Generación de URLs pre-firmadas temporales para subida de fotos a SeaweedFS (`TenantAdminOnly`).
+* `GET /api/v1/admin/categories`: Listado ordenado de categorías del restaurante (`TenantAdminOnly`).
+* `GET /api/v1/admin/categories/{id}`: Consulta detallada de una categoría de menú (`TenantAdminOnly`).
 * `POST /api/v1/admin/categories`: Alta de categorías (requiere rol `TenantAdminOnly`).
-* `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única (`1:N` vía `category_id`), validando existencia y persistiendo etiquetas dietéticas (`DietaryLabels`).
+* `PUT /api/v1/admin/categories/{id}`: Modificación completa de una categoría existente (`TenantAdminOnly`).
+* `PATCH /api/v1/admin/categories/{id}`: Modificación parcial de atributos de la categoría (`TenantAdminOnly`).
+* `DELETE /api/v1/admin/categories/{id}`: Baja de categoría con bloqueo relacional si tiene platos asociados (`TenantAdminOnly`).
+* `GET /api/v1/admin/tenant/profile`: Consulta de perfil comercial e información de contacto (nombre, teléfono, dirección, horarios) (`TenantAdminOnly`).
+* `PUT /api/v1/admin/tenant/profile`: Modificación completa del perfil comercial y contacto con invalidación CDN (`TenantAdminOnly`).
+* `PATCH /api/v1/admin/tenant/profile`: Modificación parcial de datos comerciales o contacto (`TenantAdminOnly`).
+* GET /api/v1/admin/permissions: Consulta de catálogo maestro de privilegios atómicos (TenantAdminOnly).
+* GET /api/v1/admin/roles: Listado de roles del restaurante y privilegios (TenantAdminOnly).
+* POST /api/v1/admin/roles: Creación de roles personalizados con privilegios dinámicos a medida (OwnerOnly).
+* GET /api/v1/admin/roles/{id}: Detalle de rol y privilegios (TenantAdminOnly).
+* PUT /api/v1/admin/roles/{id}: Modificación completa de rol y privilegios (OwnerOnly).
+* PATCH /api/v1/admin/roles/{id}: Modificación parcial de rol (OwnerOnly).
+* DELETE /api/v1/admin/roles/{id}: Eliminación de rol personalizado con validación de colaboradores asociados (OwnerOnly).
+* GET /api/v1/admin/staff/{user_id}/roles: Consulta de roles ostentados por un colaborador (TenantAdminOnly).
+* PUT /api/v1/admin/staff/{user_id}/roles: Asignación o revocación de roles a miembros del personal (OwnerOnly).
+* `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única a grandes rasgos (`1:N` vía `category_id`), validando existencia y persistiendo etiquetas dietéticas multifacéticas N:M (`DietaryLabels`: vegano, sin TACC, bebidas con/sin alcohol).
 * `PUT /api/v1/admin/items/{id}`: Modificación completa de atributos del plato (precio, categoría, descripción, modificadores y etiquetas dietéticas) con invalidación CDN (`TenantAdminOnly`).
 * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades del plato con reintento concurrente (`TenantAdminOnly`).
 * `DELETE /api/v1/admin/items/{id}`: Baja suave de plato (`is_deleted = true`, `deleted_at = UtcNow`) con retención de 7 días, validación de órdenes activas y mensaje amigable (`TenantAdminOnly`).
@@ -57,4 +74,33 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `POST /api/v1/analytics/collect`: Ingesta anónima de eventos analíticos sin impacto en latencia LCP.
 * `GET /api/v1/admin/analytics/dashboard`: Métricas de Nivel 1 (Ingeniería de Menú) y Nivel 2 (distribución horaria/dispositivos).
 * `GET /healthz` & `GET /ready`: Monitoreo de disponibilidad del proceso y conexión concurrente con PostgreSQL, Redis, SeaweedFS y OPA.
+
+---
+
+## 4. Entorno de Desarrollo, Datos Iniciales y Cuentas Semilladas (Development Seeding)
+
+### 4.1. Comportamiento del Esquema y Migraciones
+* Las migraciones de EF Core (`20260906001559_InitialCreate` y `20260918025637_AddCanvasLayoutAndMenuPublishJobs`) crean el esquema DDL relacional (`tenants`, `categories`, `menu_items`, `modifier_groups`, `modifier_options`, `tables`, `orders`, `menu_publish_jobs`) sin insertar datos estáticos (`HasData` ausente).
+* La base de datos arranca limpia; los datos de prueba se generan mediante la API, tests de integración o la consola de administración.
+
+### 4.2. Cuentas de Desarrollo Semilladas en Memoria (`AuthEndpoints.cs`)
+El endpoint `POST /api/v1/auth/login` implementa en memoria las siguientes cuentas preconfiguradas para pruebas y desarrollo (`SeededUser`), emitiendo tokens JWT válidos por 7 días:
+
+| Perfil de Acceso | Correo Electrónico | Contraseña de Desarrollo | Roles Asignados (Claims) | Tenant Asociado (`tenant_id`) | Slug del Restaurante (`tenant_slug`) | Identificador de Usuario (`sub`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Dueño / Administrador de Local** (`owner`) | `admin@bistrogourmet.com`<br/>o `admin@restocore.com` | `admin123`<br/>o `admin` | `owner`, `tenant_admin`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-admin-marco` (Chef Marco) |
+| **Personal de Cocina** (`cook`) | `cocina@restocore.com` | `cocina123` | `cook`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-cook-pablo` (Cocinero Pablo) |
+| **SuperAdmin de Plataforma** (`super_admin`) | `superadmin@restocore.com` | `admin123` | `super_admin` | `null` (alcance global SaaS) | `null` | `dev-superadmin` (Super Administrador) |
+
+* **Firma JWT:** Algoritmo HMAC SHA256 con clave simétrica `RestoCoreSuperSecretDevelopmentKey2026!#*`, Issuer `RestoCore`, Audience `RestoCore`.
+
+### 4.3. Infraestructura Local Contenedorizada (`docker-compose.dev.yml`)
+* **PostgreSQL 16:** Puerto `5432` (`restocore_dev`, usuario `postgres`, contraseña `postgres_dev_password`).
+* **Redis 7:** Puerto `6379` (caché de menú distribuida e invalidación de versiones).
+* **SeaweedFS S3:** Gateway en puerto `8333`, Filer en `8888`, Master en `9333` (claves `any_key` / `any_secret`).
+* **Bucket de Imágenes:** Contenedor efímero `create-bucket` auto-aprovisiona el bucket `restocore-images`.
+* **Open Policy Agent (OPA):** Puerto `8181` con montaje de `./specs/policies` en `/policies:ro`.
+* **.NET Aspire Dashboard:** Puerto Web UI `18888`, puerto OTLP gRPC `4317`.
+* **Streamlit Unified Admin:** Puerto Web UI `8501` para administración y consulta directa de PostgreSQL, Redis y SeaweedFS.
+
 

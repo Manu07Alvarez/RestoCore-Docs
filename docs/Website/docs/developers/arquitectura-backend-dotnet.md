@@ -47,8 +47,8 @@ Contiene las entidades del negocio, invariantes y reglas de dominio puras sin de
 * **`LayoutConfig` (Value Object):** Estructura inmutable persistida como `JSONB` que almacena el estado del lienzo (`IsEnabled`), URL de imagen de fondo (`BackgroundUrl`), color hexadecimal de fondo (`BackgroundColor`) y la lista de elementos gráficos (`Elements`).
 * **`CanvasElement` (Value Object):** Representa la posición geométrica y capa de un plato o elemento en el lienzo: identificador de plato (`ItemId`), coordenadas relativas (`PosX`, `PosY` entre 0 y 100), dimensiones relativas (`Width`, `Height`), índice de profundidad (`ZIndex`) y estilos adicionales (`CustomStyles`).
 * **`MenuPublishJob`:** Entidad de dominio (`ITenantScopedEntity`) que registra y audita las ejecuciones del pipeline asíncrono de compilación Ahead-Of-Time (AOT): identificador único (`Id`), tenant asociado (`TenantId`), estado del trabajo (`Status`: Queued, Processing, Completed, Failed), hash criptográfico generado (`VersionHash`), cantidad de activos procesados (`AssetsProcessed`), duración total en milisegundos (`DurationMs`), mensaje de error (`ErrorMessage`), fecha de inicio (`CreatedAtUtc`) y fecha de finalización (`CompletedAtUtc`).
-* **`Category`:** Clasificador de productos en la carta (`ITenantScopedEntity`). Soporta ordenamiento posicional (`SortOrder`), control de visibilidad (`IsVisible`) y relación 1:N como entidad principal de una colección de platos (`ICollection<MenuItem> Items`).
-* **`MenuItem`:** Plato o producto comercializable (`ITenantScopedEntity`). Pertenece obligatoriamente a una única categoría (`CategoryId: Guid`, asociación 1:N). Almacena nombre, descripción, precio base (`BasePrice`), imagen, estado de disponibilidad (`IsAvailable`), orden posicional (`DisplayOrder`), alérgenos (`Allergens: string[]`) y etiquetas dietéticas estructuradas (`DietaryLabels: string[]`). Implementa banderas de ciclo de vida para baja suave (`IsDeleted: bool = false`, `DeletedAtUtc: DateTimeOffset? = null`) con periodo de retención de 7 días (`ADR-0010`).
+* **`Category`:** Clasificador macro de productos en la carta como definición a grandes rasgos (`ITenantScopedEntity`). Soporta ordenamiento posicional (`SortOrder`), control de visibilidad (`IsVisible`) y relación 1:N como entidad principal de una colección de platos (`ICollection<MenuItem> Items`).
+* **`MenuItem`:** Plato o producto comercializable (`ITenantScopedEntity`). Pertenece obligatoriamente a una única categoría a grandes rasgos (`CategoryId: Guid`, asociación 1:N). Almacena nombre, descripción, precio base (`BasePrice`), imagen, estado de disponibilidad (`IsAvailable`), orden posicional (`DisplayOrder`), alérgenos (`Allergens: string[]`) y etiquetas dietéticas multifacéticas asociadas bajo relación N:M (`DietaryLabels: string[]` indexadas con GIN, soportando alimentos veganos y sin TACC concurrentes, y bebidas con o sin alcohol). Implementa banderas de ciclo de vida para baja suave (`IsDeleted: bool = false`, `DeletedAtUtc: DateTimeOffset? = null`) con periodo de retención de 7 días (`ADR-0010`).
 * **`OrderItem`:** Línea de comanda o pedido histórico. Desacoplada de mutaciones de catálogo mediante clave foránea nulable (`MenuItemId: Guid?` con regla `ON DELETE SET NULL`) y snapshots inmutables: `ItemNameSnapshot: string`, `UnitPriceSnapshot: decimal` y `AppliedModifiersJson: string` (`ADR-0010`).
 * **`ModifierGroup` & `ModifierOption`:** Agrupadores de adicionales y modificaciones con reglas de selección mínima y máxima (`MinSelection`, `MaxSelection`) y deltas de precio (`PriceDelta`).
 * **`Table`:** Identificador de mesa física en el salón. Contiene número de mesa, sector/zona, token de seguridad criptográfico (`TableToken`) y estado activo.
@@ -122,7 +122,24 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Lienzo Admin** | `PUT` | `/api/v1/admin/menu/layout` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Guarda o restablece la configuración geométrica de lienzo en JSONB (`ADR-0008`). |
 | **Compilación Admin**| `POST`| `/api/v1/admin/menu/publish` | `TenantAdminOnly` | 202, 401, 403, 422, 500 | Desencadena pipeline AOT y purgado perimetral CDN con SLA < 3s (`ADR-0006`). |
 | **Almacenamiento** | `POST` | `/api/v1/storage/presigned-upload` | `TenantAdminOnly` | 200, 400, 401, 403 | Genera URL pre-firmada temporal hacia SeaweedFS (`ADR-0004`). |
+| **Catálogo Admin** | `GET` | `/api/v1/admin/categories` | `TenantAdminOnly` | 200, 401, 403 | Listado de categorías del restaurante ordenadas por `sort_order`. |
+| **Catálogo Admin** | `GET` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 401, 403, 404 | Consulta de detalle de una categoría de menú. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/categories` | `TenantAdminOnly` | 201, 400, 401, 403 | Alta de categorías para el Tenant activo. |
+| **Catálogo Admin** | `PUT` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Modificación total de categoría (nombre, descripción, orden, visibilidad). |
+| **Catálogo Admin** | `PATCH` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Modificación parcial de categoría. |
+| **Catálogo Admin** | `DELETE`| `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 204, 401, 403, 404, 409 | Eliminación de categoría con bloqueo relacional si tiene platos asociados (`ON DELETE RESTRICT`). |
+| **Perfil Admin** | `GET` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 401, 403 | Consulta de información comercial y contacto (nombre, teléfono, dirección, horarios). |
+| **Perfil Admin** | `PUT` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 400, 401, 403 | Modificación completa del perfil comercial e información de contacto con invalidación CDN. |
+| **Perfil Admin** | `PATCH` | `/api/v1/admin/tenant/profile` | `TenantAdminOnly` | 200, 400, 401, 403 | Modificación parcial del perfil o contacto del restaurante. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/permissions` | `TenantAdminOnly` | 200, 401, 403 | Catálogo maestro de privilegios del sistema. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/roles` | `TenantAdminOnly` | 200, 401, 403 | Listado de roles configurados para el restaurante. |
+| **Roles & Staff** | `POST` | `/api/v1/admin/roles` | `OwnerOnly` | 201, 400, 401, 403, 409 | Creación de rol personalizado con privilegios a medida. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/roles/{id}` | `TenantAdminOnly` | 200, 401, 403, 404 | Detalle de rol y privilegios asociados. |
+| **Roles & Staff** | `PUT` | `/api/v1/admin/roles/{id}` | `OwnerOnly` | 200, 400, 401, 403, 404 | Modificación completa de rol y privilegios. |
+| **Roles & Staff** | `PATCH` | `/api/v1/admin/roles/{id}` | `OwnerOnly` | 200, 400, 401, 403, 404 | Modificación parcial de rol. |
+| **Roles & Staff** | `DELETE`| `/api/v1/admin/roles/{id}` | `OwnerOnly` | 204, 401, 403, 404, 409 | Eliminación de rol personalizado con bloqueo si tiene personal asignado. |
+| **Roles & Staff** | `GET` | `/api/v1/admin/staff/{user_id}/roles` | `TenantAdminOnly` | 200, 401, 403, 404 | Consulta de roles ostentados por un colaborador. |
+| **Roles & Staff** | `PUT` | `/api/v1/admin/staff/{user_id}/roles` | `OwnerOnly` | 200, 400, 401, 403, 404 | Asignación y revocación de roles a miembros del personal. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items` | `TenantAdminOnly` | 201, 400, 401, 403, 422 | Alta de platos asociados unívocamente a una categoría (1:N vía `category_id`), con etiquetas dietéticas (`DietaryLabels`). |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación total del plato con validación relacional e invalidación CDN. |
 | **Catálogo Admin** | `PATCH` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación parcial de propiedades individuales del plato. |
@@ -187,3 +204,50 @@ Se implementó una suite de pruebas de estrés automatizada mediante scripts de 
 * **`public-menu-stress.js`:** Estrés concurrente para auditar el presupuesto de latencia (< 500ms p95 bajo carga).
 * **`etag-cache-test.js`:** Validación de respuestas 304 Not Modified con cabeceras `If-None-Match`, certificando latencias < 50ms al operar bajo caché.
 * **`all-endpoints-test.js`:** Prueba integral sobre endpoints de catálogo, cocina, almacenamiento y mesas.
+
+---
+
+## 7. Entorno de Desarrollo, Datos Iniciales y Cuentas Semilladas (Development Seeding)
+
+Esta sección especifica la configuración del entorno local de desarrollo, el comportamiento del esquema de datos al inicializar y el catálogo de cuentas y datos semillados en memoria para pruebas de integración y depuración local.
+
+### 7.1. Estado del Esquema y Comportamiento de Migraciones EF Core
+Al ejecutar las migraciones de Entity Framework Core (`InitialCreate` y `AddCanvasLayoutAndMenuPublishJobs`):
+* El motor aplica la definición DDL de las tablas relacionales (`tenants`, `categories`, `menu_items`, `modifier_groups`, `modifier_options`, `tables`, `orders`, `menu_publish_jobs`), índices `GIN` y restricciones de clave foránea.
+* **Comportamiento del Semillero en Base de Datos:** Las migraciones **no contienen directivas `HasData` ni inserciones estáticas de registros**. La base de datos PostgreSQL arranca en estado limpio sin registros precargados, evitando colisiones de identificadores únicos (`Guid`) en ambientes de prueba.
+
+### 7.2. Cuentas de Desarrollo Semilladas en Memoria (`AuthEndpoints.cs`)
+Para permitir la autenticación inmediata y el consumo de endpoints protegidos sin requerir la provisión manual previa de usuarios en base de datos, el endpoint de inicio de sesión (`POST /api/v1/auth/login`) implementa en memoria las siguientes cuentas preconfiguradas (`SeededUser`), emitiendo tokens JWT con validez de 7 días:
+
+| Perfil de Acceso | Correo Electrónico | Contraseña de Desarrollo | Roles Asignados (Claims) | Tenant Asociado (`tenant_id`) | Slug del Restaurante (`tenant_slug`) | Identificador de Usuario (`sub`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Dueño / Administrador de Local** (`owner`) | `admin@bistrogourmet.com`<br/>o `admin@restocore.com` | `admin123`<br/>o `admin` | `owner`, `tenant_admin`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-admin-marco` (Chef Marco) |
+| **Personal de Cocina** (`cook`) | `cocina@restocore.com` | `cocina123` | `cook`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-cook-pablo` (Cocinero Pablo) |
+| **SuperAdmin de Plataforma** (`super_admin`) | `superadmin@restocore.com` | `admin123` | `super_admin` | `null` (alcance global SaaS) | `null` | `dev-superadmin` (Super Administrador) |
+
+#### Parámetros Criptográficos del Token JWT en Desarrollo
+* **Clave Secreta (`Jwt:Key`):** `RestoCoreSuperSecretDevelopmentKey2026!#*` (HMAC SHA256)
+* **Emisor (`Jwt:Issuer`):** `RestoCore`
+* **Audiencia (`Jwt:Audience`):** `RestoCore`
+* **Tiempo de Expiración:** 7 días a partir del momento de emisión (`DateTime.UtcNow.AddDays(7)`).
+
+### 7.3. Parámetros de Infraestructura Local (`docker-compose.dev.yml`)
+El archivo de orquestación local expone los siguientes puertos y credenciales por defecto:
+
+| Servicio | Contenedor | Puerto Host | Credenciales / Conexión por Defecto | Propósito y Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| **PostgreSQL 16** | `restocore-postgres-dev` | `5432` | `Host=localhost;Port=5432;Database=restocore_dev;Username=postgres;Password=postgres_dev_password` | Base relacional principal. Persistencia en volumen `postgres_dev_data`. |
+| **Redis 7** | `restocore-redis-dev` | `6379` | `localhost:6379` (Sin contraseña) | Motor de caché de menú e invalidación por versiones de tenant. |
+| **SeaweedFS S3** | `restocore-seaweedfs-dev` | `8333` (S3 Gateway)<br/>`8888` (Filer HTTP)<br/>`9333` (Master) | `AWS_ACCESS_KEY_ID=any_key`<br/>`AWS_SECRET_ACCESS_KEY=any_secret` | Almacenamiento desacoplado de imágenes. Volumen `seaweedfs_data`. |
+| **Create Bucket** | `restocore-create-bucket-dev` | N/A | Efímero (`sleep 3 && curl -s -X PUT http://seaweedfs:8333/restocore-images`) | Creación automática del bucket `restocore-images` al iniciar el stack. |
+| **Open Policy Agent (OPA)** | `restocore-opa-dev` | `8181` | `http://localhost:8181` | Servidor de políticas Rego montadas desde `./specs/policies` en `/policies:ro`. |
+| **.NET Aspire Dashboard** | `restocore-aspire-dashboard-dev` | `18888` (Web UI)<br/>`4317` (OTLP gRPC)<br/>`4318` (OTLP HTTP) | Modo no autenticado (`DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true`) | Visualizador en tiempo real de trazas distribuidas, métricas y logs estructurados. |
+| **Streamlit Unified Admin** | `restocore-unified-admin-dev` | `8501` (Web UI) | Acceso directo a Postgres, Redis y SeaweedFS | Consola modular de administración para inspección de tablas, claves de caché y previsualización de objetos S3. |
+
+### 7.4. Mecanismo de Aprovisionamiento y Carga de Datos en Desarrollo
+Para sembrar o poblar datos relacionales en la base de datos local:
+1. **Aprovisionamiento del Tenant Inicial:** Ejecutar una petición `POST /api/v1/admin/tenants` utilizando el token de `super_admin` con el payload de creación (`Name`: "El Gato Negro", `Slug`: "el-gato-negro").
+2. **Creación de Categorías y Platos:** Utilizar los endpoints administrativos `POST /api/v1/admin/categories` y `POST /api/v1/admin/items` autenticado con el token de `dev-admin-marco` (`owner`).
+3. **Exploración e Inserción Interactiva:** Conectarse a la consola de Streamlit Unified Admin en `http://localhost:8501` para ejecutar sentencias SQL directas sobre `restocore_dev` o cargar archivos multimedia a SeaweedFS.
+4. **Verificación Automatizada Completa:** Ejecutar `./scripts/verify-docker-env.ps1`, el cual verifica el estado saludable de los cinco contenedores, corre las migraciones de EF Core y ejecuta las pruebas de ciclo completo de vida (`FullLifecycleE2ETests`).
+

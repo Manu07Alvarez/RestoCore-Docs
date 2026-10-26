@@ -64,11 +64,13 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 
 ## 4. Requisitos de Ciclo de Vida, Modificación y Baja Suave de Platos
 
-### 4.1. Modificación de Atributos y Asociación Categórica (1:N)
+### 4.1. Modificación de Atributos, Asociación Categórica (1:N) y Etiquetas Dietéticas (N:M)
 * **[EARS-DISH-006] (Event-Driven):**
   CUANDO el administrador modifique los atributos de un plato (`PUT` o `PATCH /api/v1/admin/items/{id}`), el sistema DEBERÁ validar y actualizar los datos en el catálogo, preservando sus etiquetas dietéticas (`DietaryLabels`) e invalidando la caché perimetral en CDN.
 * **[EARS-DISH-007] (Unwanted Behavior):**
   SI se intenta asociar un plato a una categoría inexistente o no válida, ENTONCES el sistema DEBERÁ rechazar la operación y retornar un error de validación con código HTTP 422 Unprocessable Entity.
+* **[EARS-DISH-010] (Ubiquitous):**
+  El sistema DEBERÁ soportar la asignación múltiple de etiquetas dietéticas (`DietaryLabels`) bajo una relación N:M para cada producto, permitiendo identificar de forma simultánea atributos dietéticos en alimentos (como vegano y sin TACC / `celiac_safe`) y la presencia o ausencia de alcohol en bebidas (`contains_alcohol` vs. `alcohol_free`).
 
 ### 4.2. Retiro de Platos, Retención de 7 Días y Purga Física Programada
 * **[EARS-DISH-001] (Event-Driven):**
@@ -87,6 +89,34 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
   MIENTRAS un plato permanezca en periodo de baja suave (menos de 7 días desde `deleted_at`), el sistema DEBERÁ permitir su restauración desde el panel administrativo restableciendo su visibilidad activa en el menú digital.
 * **[EARS-DISH-005] (Event-Driven):**
   CUANDO el administrador ejecute la restauración de un plato archivado dentro de los 7 días de retención (`POST /api/v1/admin/items/{id}/restore`), el sistema DEBERÁ restablecer el estado activo (`is_deleted = false`, `deleted_at = null`), invalidar la caché perimetral del tenant y habilitar su visualización inmediata en la carta digital.
+
+### 4.4. Gestión Completa de Categorías de Menú (ABMC)
+* **[EARS-CAT-001] (Event-Driven):**
+  CUANDO el administrador solicite crear una nueva categoría (`POST /api/v1/admin/categories`), el sistema DEBERÁ validar el nombre y registrar la categoría asociada al tenant activo con su orden de despliegue (`sort_order`).
+* **[EARS-CAT-002] (Event-Driven):**
+  CUANDO el administrador modifique los atributos de una categoría (`PUT` o `PATCH /api/v1/admin/categories/{id}`), el sistema DEBERÁ persistir las modificaciones de nombre, descripción, visibilidad u orden e invalidar la caché perimetral en CDN.
+* **[EARS-CAT-003] (Unwanted Behavior):**
+  SI el administrador solicita la eliminación de una categoría que posee platos asociados activos o archivados (`DELETE /api/v1/admin/categories/{id}`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict para salvaguardar la integridad referencial (`ON DELETE RESTRICT`) e impedir platos huérfanos.
+* **[EARS-CAT-004] (Event-Driven):**
+  CUANDO el administrador solicite la eliminación de una categoría sin platos asociados, el sistema DEBERÁ eliminar el registro de la categoría e invalidar la caché perimetral en CDN.
+
+### 4.5. Perfil, Datos de Contacto y Nombre del Restaurante (Tenant Profile)
+* **[EARS-TENANT-001] (Event-Driven):**
+  CUANDO el administrador modifique el nombre del restaurante, teléfono, dirección o franjas horarias (`PUT` o `PATCH /api/v1/admin/tenant/profile`), el sistema DEBERÁ actualizar los atributos del tenant e invalidar inmediatamente la caché de la carta digital pública en CDN.
+* **[EARS-TENANT-002] (Ubiquitous):**
+  El sistema DEBERÁ exponer los atributos de contacto (`phone_number`, `address`, `business_hours`) en el contrato de la carta digital pública (`GET /api/v1/tenants/{tenant_slug}/menu`) para consulta directa del comensal.
+
+### 4.6. Gestión de Roles Personalizados y Privilegios Dinámicos (Custom RBAC)
+* **[EARS-RBAC-001] (Event-Driven):**
+  CUANDO el dueño o administrador principal cree o modifique un rol (`POST` o `PUT /api/v1/admin/roles`), el sistema DEBERÁ asociar el rol al tenant activo y persistir el conjunto de privilegios atómicos seleccionados del catálogo maestro.
+* **[EARS-RBAC-002] (Unwanted Behavior):**
+  SI el administrador solicita la eliminación de un rol base del sistema (`is_system == true`) o un rol que posee colaboradores activos asignados (`DELETE /api/v1/admin/roles/{id}`), ENTONCES el sistema DEBERÁ rechazar la solicitud con código HTTP 409 Conflict.
+* **[EARS-RBAC-003] (Event-Driven):**
+  CUANDO el administrador asigne o revoque roles a un miembro del personal (`PUT /api/v1/admin/staff/{user_id}/roles`), el sistema DEBERÁ actualizar inmediatamente la asociación y recalcular los permisos consolidados del usuario.
+* **[EARS-RBAC-004] (State-Driven):**
+  MIENTRAS un colaborador posea un privilegio específico en su lista de permisos consolidados (`input.action in input.user.permissions`), el motor OPA DEBERÁ autorizar la ejecución de la operación solicitada.
+* **[EARS-RBAC-005] (Unwanted Behavior):**
+  SI un usuario autenticado intenta ejecutar una acción para la cual no cuenta con el privilegio correspondiente en ninguno de sus roles asignados, ENTONCES el sistema DEBERÁ denegar el acceso con código HTTP 403 Forbidden.
 
 ---
 
@@ -140,6 +170,18 @@ Este documento especifica de forma rigurosa y no ambigua el comportamiento del s
 | **EARS-DISH-007** | Unwanted Behavior | Catalog / Category Guard | Test de rechazo 422 por `category_id` inexistente |
 | **EARS-DISH-008** | Event-Driven | Purge Worker / Storage | Test de purga definitiva en BD y SeaweedFS tras 7 días |
 | **EARS-DISH-009** | State-Driven | Catalog / Restore Guard | Test de disponibilidad de restauración mientras `now() - deleted_at < 7d` |
+| **EARS-DISH-010** | Ubiquitous | Catalog / Dietary Engine | Test de asignación múltiple N:M de etiquetas y clasificación de bebidas |
+| **EARS-CAT-001**  | Event-Driven | Catalog / Category Service | Test de creación de categoría `POST /categories` |
+| **EARS-CAT-002**  | Event-Driven | Catalog / Category Service | Test de modificación total/parcial `PUT`/`PATCH /categories/{id}` |
+| **EARS-CAT-003**  | Unwanted Behavior | Catalog / Category Guard | Test de bloqueo 409 Conflict al eliminar categoría con platos |
+| **EARS-CAT-004**  | Event-Driven | Catalog / Category Service | Test de eliminación exitosa `DELETE /categories/{id}` sin ítems |
+| **EARS-TENANT-001**| Event-Driven | Tenant / Profile Service | Test de actualización de datos de contacto y nombre de restaurante |
+| **EARS-TENANT-002**| Ubiquitous | Public Menu / Aggregator | Test de exposición de teléfono, dirección y horarios en carta QR |
+| **EARS-RBAC-001**  | Event-Driven | Staff & Roles / RBAC Engine | Test de creación y mutación de rol con privilegios `POST /roles` |
+| **EARS-RBAC-002**  | Unwanted Behavior | Staff & Roles / Guard | Test de rechazo 409 al borrar rol de sistema o con usuarios |
+| **EARS-RBAC-003**  | Event-Driven | Staff & Roles / User Roles | Test de asignación de roles a miembros del personal |
+| **EARS-RBAC-004**  | State-Driven | Security / OPA Evaluator | Test de evaluación positiva de privilegios consolidados |
+| **EARS-RBAC-005**  | Unwanted Behavior | Security / OPA Evaluator | Test de denegación 403 por falta de privilegio en rol |
 | **EARS-METRIC-001**| Event-Driven | Analytics / Visit Tracking | Test de registro asíncrono de escaneo QR |
 | **EARS-METRIC-002**| Event-Driven | Analytics / Dish Interaction | Test de incremento de visualizaciones de plato |
 | **EARS-METRIC-003**| Ubiquitous | Analytics / Menu Engineering | Test de cálculo de cuadrantes de la Matriz de Menú |

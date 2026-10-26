@@ -2,6 +2,16 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Especificación de Entorno de Desarrollo y Cuentas Semilladas (Development Seeding)
+* **Fecha:** 26 de Octubre de 2026
+* **Resumen:** Sincronización y formalización del entorno local y datos de prueba (`/backend-sync`):
+  * **Comportamiento del Esquema de Persistencia:** Aclaración de que las migraciones de EF Core (`InitialCreate` y `AddCanvasLayoutAndMenuPublishJobs`) definen la estructura DDL en PostgreSQL sin semillado estático de datos (`HasData` ausente), arrancando en base limpia.
+  * **Cuentas Semilladas de Desarrollo (`AuthEndpoints.cs`):** Especificación del catálogo de cuentas preconfiguradas en memoria para `owner` (`admin@bistrogourmet.com` / `admin@restocore.com` - tenant `11111111-1111-1111-1111-111111111111` / `el-gato-negro`), `cook` (`cocina@restocore.com`) y `super_admin` (`superadmin@restocore.com`).
+  * **Parámetros de Infraestructura (`docker-compose.dev.yml`):** Documentación de puertos y credenciales por defecto para PostgreSQL (5432), Redis (6379), SeaweedFS (8333/8888/9333), OPA (8181), Aspire Dashboard (18888/4317) y Streamlit Unified Admin (8501).
+  * **Guía de Onboarding:** Actualización de `guia-onboarding.md` y `arquitectura-backend-dotnet.md` con tablas de referencia rápida para facilitar la puesta en marcha local.
+
+---
+
 ## Hito: Modificación de Platos, Relación 1:N con Categorías, DietaryLabels y Baja Suave con Retención de 7 Días (ADR-0010 Actualizado)
 * **Fecha:** 10 de Octubre de 2026
 * **Resumen:** Actualización integral de especificaciones funcionales, relacionales y de ciclo de vida de catálogo:
