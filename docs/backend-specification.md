@@ -58,3 +58,32 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `GET /api/v1/admin/analytics/dashboard`: Métricas de Nivel 1 (Ingeniería de Menú) y Nivel 2 (distribución horaria/dispositivos).
 * `GET /healthz` & `GET /ready`: Monitoreo de disponibilidad del proceso y conexión concurrente con PostgreSQL, Redis, SeaweedFS y OPA.
 
+---
+
+## 4. Entorno de Desarrollo, Datos Iniciales y Cuentas Semilladas (Development Seeding)
+
+### 4.1. Comportamiento del Esquema y Migraciones
+* Las migraciones de EF Core (`20260906001559_InitialCreate` y `20260918025637_AddCanvasLayoutAndMenuPublishJobs`) crean el esquema DDL relacional (`tenants`, `categories`, `menu_items`, `modifier_groups`, `modifier_options`, `tables`, `orders`, `menu_publish_jobs`) sin insertar datos estáticos (`HasData` ausente).
+* La base de datos arranca limpia; los datos de prueba se generan mediante la API, tests de integración o la consola de administración.
+
+### 4.2. Cuentas de Desarrollo Semilladas en Memoria (`AuthEndpoints.cs`)
+El endpoint `POST /api/v1/auth/login` implementa en memoria las siguientes cuentas preconfiguradas para pruebas y desarrollo (`SeededUser`), emitiendo tokens JWT válidos por 7 días:
+
+| Perfil de Acceso | Correo Electrónico | Contraseña de Desarrollo | Roles Asignados (Claims) | Tenant Asociado (`tenant_id`) | Slug del Restaurante (`tenant_slug`) | Identificador de Usuario (`sub`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Dueño / Administrador de Local** (`owner`) | `admin@bistrogourmet.com`<br/>o `admin@restocore.com` | `admin123`<br/>o `admin` | `owner`, `tenant_admin`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-admin-marco` (Chef Marco) |
+| **Personal de Cocina** (`cook`) | `cocina@restocore.com` | `cocina123` | `cook`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-cook-pablo` (Cocinero Pablo) |
+| **SuperAdmin de Plataforma** (`super_admin`) | `superadmin@restocore.com` | `admin123` | `super_admin` | `null` (alcance global SaaS) | `null` | `dev-superadmin` (Super Administrador) |
+
+* **Firma JWT:** Algoritmo HMAC SHA256 con clave simétrica `RestoCoreSuperSecretDevelopmentKey2026!#*`, Issuer `RestoCore`, Audience `RestoCore`.
+
+### 4.3. Infraestructura Local Contenedorizada (`docker-compose.dev.yml`)
+* **PostgreSQL 16:** Puerto `5432` (`restocore_dev`, usuario `postgres`, contraseña `postgres_dev_password`).
+* **Redis 7:** Puerto `6379` (caché de menú distribuida e invalidación de versiones).
+* **SeaweedFS S3:** Gateway en puerto `8333`, Filer en `8888`, Master en `9333` (claves `any_key` / `any_secret`).
+* **Bucket de Imágenes:** Contenedor efímero `create-bucket` auto-aprovisiona el bucket `restocore-images`.
+* **Open Policy Agent (OPA):** Puerto `8181` con montaje de `./specs/policies` en `/policies:ro`.
+* **.NET Aspire Dashboard:** Puerto Web UI `18888`, puerto OTLP gRPC `4317`.
+* **Streamlit Unified Admin:** Puerto Web UI `8501` para administración y consulta directa de PostgreSQL, Redis y SeaweedFS.
+
+

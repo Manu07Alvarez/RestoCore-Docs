@@ -187,3 +187,50 @@ Se implementó una suite de pruebas de estrés automatizada mediante scripts de 
 * **`public-menu-stress.js`:** Estrés concurrente para auditar el presupuesto de latencia (< 500ms p95 bajo carga).
 * **`etag-cache-test.js`:** Validación de respuestas 304 Not Modified con cabeceras `If-None-Match`, certificando latencias < 50ms al operar bajo caché.
 * **`all-endpoints-test.js`:** Prueba integral sobre endpoints de catálogo, cocina, almacenamiento y mesas.
+
+---
+
+## 7. Entorno de Desarrollo, Datos Iniciales y Cuentas Semilladas (Development Seeding)
+
+Esta sección especifica la configuración del entorno local de desarrollo, el comportamiento del esquema de datos al inicializar y el catálogo de cuentas y datos semillados en memoria para pruebas de integración y depuración local.
+
+### 7.1. Estado del Esquema y Comportamiento de Migraciones EF Core
+Al ejecutar las migraciones de Entity Framework Core (`InitialCreate` y `AddCanvasLayoutAndMenuPublishJobs`):
+* El motor aplica la definición DDL de las tablas relacionales (`tenants`, `categories`, `menu_items`, `modifier_groups`, `modifier_options`, `tables`, `orders`, `menu_publish_jobs`), índices `GIN` y restricciones de clave foránea.
+* **Comportamiento del Semillero en Base de Datos:** Las migraciones **no contienen directivas `HasData` ni inserciones estáticas de registros**. La base de datos PostgreSQL arranca en estado limpio sin registros precargados, evitando colisiones de identificadores únicos (`Guid`) en ambientes de prueba.
+
+### 7.2. Cuentas de Desarrollo Semilladas en Memoria (`AuthEndpoints.cs`)
+Para permitir la autenticación inmediata y el consumo de endpoints protegidos sin requerir la provisión manual previa de usuarios en base de datos, el endpoint de inicio de sesión (`POST /api/v1/auth/login`) implementa en memoria las siguientes cuentas preconfiguradas (`SeededUser`), emitiendo tokens JWT con validez de 7 días:
+
+| Perfil de Acceso | Correo Electrónico | Contraseña de Desarrollo | Roles Asignados (Claims) | Tenant Asociado (`tenant_id`) | Slug del Restaurante (`tenant_slug`) | Identificador de Usuario (`sub`) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Dueño / Administrador de Local** (`owner`) | `admin@bistrogourmet.com`<br/>o `admin@restocore.com` | `admin123`<br/>o `admin` | `owner`, `tenant_admin`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-admin-marco` (Chef Marco) |
+| **Personal de Cocina** (`cook`) | `cocina@restocore.com` | `cocina123` | `cook`, `kitchen_staff` | `11111111-1111-1111-1111-111111111111` | `el-gato-negro` | `dev-cook-pablo` (Cocinero Pablo) |
+| **SuperAdmin de Plataforma** (`super_admin`) | `superadmin@restocore.com` | `admin123` | `super_admin` | `null` (alcance global SaaS) | `null` | `dev-superadmin` (Super Administrador) |
+
+#### Parámetros Criptográficos del Token JWT en Desarrollo
+* **Clave Secreta (`Jwt:Key`):** `RestoCoreSuperSecretDevelopmentKey2026!#*` (HMAC SHA256)
+* **Emisor (`Jwt:Issuer`):** `RestoCore`
+* **Audiencia (`Jwt:Audience`):** `RestoCore`
+* **Tiempo de Expiración:** 7 días a partir del momento de emisión (`DateTime.UtcNow.AddDays(7)`).
+
+### 7.3. Parámetros de Infraestructura Local (`docker-compose.dev.yml`)
+El archivo de orquestación local expone los siguientes puertos y credenciales por defecto:
+
+| Servicio | Contenedor | Puerto Host | Credenciales / Conexión por Defecto | Propósito y Comportamiento |
+| :--- | :--- | :--- | :--- | :--- |
+| **PostgreSQL 16** | `restocore-postgres-dev` | `5432` | `Host=localhost;Port=5432;Database=restocore_dev;Username=postgres;Password=postgres_dev_password` | Base relacional principal. Persistencia en volumen `postgres_dev_data`. |
+| **Redis 7** | `restocore-redis-dev` | `6379` | `localhost:6379` (Sin contraseña) | Motor de caché de menú e invalidación por versiones de tenant. |
+| **SeaweedFS S3** | `restocore-seaweedfs-dev` | `8333` (S3 Gateway)<br/>`8888` (Filer HTTP)<br/>`9333` (Master) | `AWS_ACCESS_KEY_ID=any_key`<br/>`AWS_SECRET_ACCESS_KEY=any_secret` | Almacenamiento desacoplado de imágenes. Volumen `seaweedfs_data`. |
+| **Create Bucket** | `restocore-create-bucket-dev` | N/A | Efímero (`sleep 3 && curl -s -X PUT http://seaweedfs:8333/restocore-images`) | Creación automática del bucket `restocore-images` al iniciar el stack. |
+| **Open Policy Agent (OPA)** | `restocore-opa-dev` | `8181` | `http://localhost:8181` | Servidor de políticas Rego montadas desde `./specs/policies` en `/policies:ro`. |
+| **.NET Aspire Dashboard** | `restocore-aspire-dashboard-dev` | `18888` (Web UI)<br/>`4317` (OTLP gRPC)<br/>`4318` (OTLP HTTP) | Modo no autenticado (`DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true`) | Visualizador en tiempo real de trazas distribuidas, métricas y logs estructurados. |
+| **Streamlit Unified Admin** | `restocore-unified-admin-dev` | `8501` (Web UI) | Acceso directo a Postgres, Redis y SeaweedFS | Consola modular de administración para inspección de tablas, claves de caché y previsualización de objetos S3. |
+
+### 7.4. Mecanismo de Aprovisionamiento y Carga de Datos en Desarrollo
+Para sembrar o poblar datos relacionales en la base de datos local:
+1. **Aprovisionamiento del Tenant Inicial:** Ejecutar una petición `POST /api/v1/admin/tenants` utilizando el token de `super_admin` con el payload de creación (`Name`: "El Gato Negro", `Slug`: "el-gato-negro").
+2. **Creación de Categorías y Platos:** Utilizar los endpoints administrativos `POST /api/v1/admin/categories` y `POST /api/v1/admin/items` autenticado con el token de `dev-admin-marco` (`owner`).
+3. **Exploración e Inserción Interactiva:** Conectarse a la consola de Streamlit Unified Admin en `http://localhost:8501` para ejecutar sentencias SQL directas sobre `restocore_dev` o cargar archivos multimedia a SeaweedFS.
+4. **Verificación Automatizada Completa:** Ejecutar `./scripts/verify-docker-env.ps1`, el cual verifica el estado saludable de los cinco contenedores, corre las migraciones de EF Core y ejecuta las pruebas de ciclo completo de vida (`FullLifecycleE2ETests`).
+
