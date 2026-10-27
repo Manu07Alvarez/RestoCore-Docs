@@ -2,13 +2,14 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
-## Hito: Especificación de Entorno de Desarrollo y Cuentas Semilladas (Development Seeding)
+## Hito: Autenticación de Usuarios en PostgreSQL y Semillero Bajo Demanda (`DatabaseSeeder` - Feature 010 en `resto-core-back`)
 * **Fecha:** 26 de Octubre de 2026
-* **Resumen:** Sincronización y formalización del entorno local y datos de prueba (`/backend-sync`):
-  * **Comportamiento del Esquema de Persistencia:** Aclaración de que las migraciones de EF Core (`InitialCreate` y `AddCanvasLayoutAndMenuPublishJobs`) definen la estructura DDL en PostgreSQL sin semillado estático de datos (`HasData` ausente), arrancando en base limpia.
-  * **Cuentas Semilladas de Desarrollo (`AuthEndpoints.cs`):** Especificación del catálogo de cuentas preconfiguradas en memoria para `owner` (`admin@bistrogourmet.com` / `admin@restocore.com` - tenant `11111111-1111-1111-1111-111111111111` / `el-gato-negro`), `cook` (`cocina@restocore.com`) y `super_admin` (`superadmin@restocore.com`).
-  * **Parámetros de Infraestructura (`docker-compose.dev.yml`):** Documentación de puertos y credenciales por defecto para PostgreSQL (5432), Redis (6379), SeaweedFS (8333/8888/9333), OPA (8181), Aspire Dashboard (18888/4317) y Streamlit Unified Admin (8501).
-  * **Guía de Onboarding:** Actualización de `guia-onboarding.md` y `arquitectura-backend-dotnet.md` con tablas de referencia rápida para facilitar la puesta en marcha local.
+* **Commit:** `5558ea3` en `resto-core-back`
+* **Resumen:** Sincronización de especificaciones de autenticación persistida y semillado bajo demanda (`/backend-sync`):
+  * **Eliminación de Credenciales en Memoria y Entidad `User`:** Remoción de cuentas cableadas (`SeededUser`) en `AuthEndpoints.cs`. Incorporación de la entidad de dominio `User` mapeada a la tabla `users` en PostgreSQL (con índice único `IX_users_Email`, arreglo `Roles` en `text[]` y relación opcional `TenantId` con borrado en cascada) y repositorio `IUserRepository` / `UserRepository`.
+  * **Seguridad Criptográfica PBKDF2-HMAC-SHA256 (`IPasswordHasher`):** Implementación de `PasswordHasher` con 100.000 iteraciones, salt aleatorio de 16 bytes, clave de 32 bytes (`v1$100000$<salt>$<hash>`) y comparación en tiempo constante (`CryptographicOperations.FixedTimeEquals`) dentro del caso de uso CQRS `LoginCommand` / `LoginCommandHandler`.
+  * **Semillero Idempotente Bajo Demanda (`DatabaseSeeder` y `scripts/seed-db.ps1`):** Implementación del modo de ejecución CLI `--seed` en `Program.cs` y script `./scripts/seed-db.ps1` que aprovisionan de forma idempotente en PostgreSQL el establecimiento **El Gato Negro** (`11111111-1111-1111-1111-111111111111`, slug `el-gato-negro`), las 4 cuentas de desarrollo (`admin@bistrogourmet.com`, `admin@restocore.com`, `cocina@restocore.com`, `superadmin@restocore.com`), 3 categorías, 5 platos de muestra con grupos de modificadores y 5 mesas QR.
+  * **Parámetros de Infraestructura y Guía de Onboarding:** Actualización de `arquitectura-backend-dotnet.md`, `backend-specification.md` y `guia-onboarding.md` con el flujo de semillado y tablas de referencia.
 
 ---
 

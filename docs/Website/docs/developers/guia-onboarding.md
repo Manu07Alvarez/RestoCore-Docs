@@ -25,19 +25,32 @@ O ejecutar el script de verificación automatizada:
 ./scripts/verify-docker-env.ps1
 ```
 
-### 2. Cuentas de Acceso Preconfiguradas (Seeded Dev Accounts)
-El endpoint `POST /api/v1/auth/login` permite autenticarse de forma inmediata utilizando las siguientes credenciales en memoria:
+### 2. Semillado Bajo Demanda de Base de Datos (`DatabaseSeeder`)
+Al iniciar los contenedores de Docker, PostgreSQL arranca con el esquema limpio (no se siembran datos de forma automática). Para poblar el entorno local con el restaurante de muestra **El Gato Negro**, sus categorías, platos, mesas QR y cuentas de usuario en la tabla `users`, ejecutar desde la raíz de `resto-core-back`:
 
-| Perfil de Usuario | Correo Electrónico | Contraseña | Roles / Alcance | Tenant Slug / ID |
+```powershell
+# Opción recomendada (aplica migraciones si se indica -ForceMigrate y ejecuta el seeder idempotente):
+./scripts/seed-db.ps1 -ForceMigrate
+
+# O directamente mediante la CLI de .NET:
+dotnet run --project src/RestoCore.Api/RestoCore.Api.csproj -- --seed
+```
+
+### 3. Cuentas de Acceso Semilladas en PostgreSQL (Tabla `users`)
+Una vez ejecutado el seeder, el endpoint `POST /api/v1/auth/login` autentica contra la tabla `users` en PostgreSQL (con hashes PBKDF2-HMAC-SHA256) utilizando las siguientes credenciales de desarrollo:
+
+| Perfil de Usuario | Correo Electrónico | Contraseña | Roles (`Roles`) | Tenant Slug / ID |
 | :--- | :--- | :--- | :--- | :--- |
-| **Dueño / Administrador de Local** | `admin@bistrogourmet.com`<br/>o `admin@restocore.com` | `admin123`<br/>o `admin` | `owner`, `tenant_admin`, `kitchen_staff` | `el-gato-negro`<br/>`11111111-1111-1111-1111-111111111111` |
+| **Dueño / Administrador Principal** | `admin@bistrogourmet.com` | `admin123` | `owner`, `tenant_admin`, `kitchen_staff` | `el-gato-negro`<br/>`11111111-1111-1111-1111-111111111111` |
+| **Administrador Local Alternativo** | `admin@restocore.com` | `admin123` | `owner`, `tenant_admin`, `kitchen_staff` | `el-gato-negro`<br/>`11111111-1111-1111-1111-111111111111` |
 | **Personal de Cocina (KDS)** | `cocina@restocore.com` | `cocina123` | `cook`, `kitchen_staff` | `el-gato-negro`<br/>`11111111-1111-1111-1111-111111111111` |
-| **SuperAdmin de Plataforma** | `superadmin@restocore.com` | `admin123` | `super_admin` | Global (Plataforma SaaS) |
+| **SuperAdmin de Plataforma** | `superadmin@restocore.com` | `admin123` | `super_admin` | Global (`TenantId: null`) |
 
-### 3. Paneles de Herramientas y Observabilidad Local
+### 4. Paneles de Herramientas y Observabilidad Local
 * **Swagger UI / Contrato OpenAPI:** `http://localhost:5000/swagger`
 * **Streamlit Unified Admin (Postgres, Redis, SeaweedFS):** `http://localhost:8501`
 * **.NET Aspire Dashboard (Trazas, Métricas y Logs OTLP):** `http://localhost:18888`
 * **SeaweedFS S3 Gateway:** `http://localhost:8333`
 * **Open Policy Agent (OPA Server):** `http://localhost:8181`
+
 
