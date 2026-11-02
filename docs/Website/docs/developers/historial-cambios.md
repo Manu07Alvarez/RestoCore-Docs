@@ -1,6 +1,24 @@
-# Historial de Cambios e Integraciones
+﻿# Historial de Cambios e Integraciones
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
+
+## Hito: Diagnóstico Integral de Optimizaciones de Backend, ADRs 0014-0018 y 5 PRDs Propuestos para Expansión del Ecosistema
+* **Fecha:** 2 de Noviembre de 2026
+* **Resumen:** Auditoría arquitectónica y de rendimiento del backend (`OPT-01` a `OPT-10`), formalización de 4 Registros de Decisiones de Arquitectura y diseño de 5 Propuestas de Producto (PRDs) pendientes de evaluación del equipo:
+  * **Diagnóstico de Optimizaciones (`diagnostico-optimizaciones-backend.md`):** Identificación y plan de remediación para 10 cuellos de botella en `resto-core-back`, incluyendo paginación en PostgreSQL, índices GIN (`jsonb_path_ops`), caché híbrido L1/L2 con `HybridCache` y Pub/Sub en Redis, `HttpClient` tipado con `IHttpClientFactory` para `OpaService`, eliminación de reflexión por request en `CustomMediator` y gobernanza de privacidad en OpenTelemetry.
+  * **Decisiones de Arquitectura (`ADR-0014` a `ADR-0017`):**
+    * `ADR-0014`: Optimización de persistencia PostgreSQL, índices GIN (`jsonb_path_ops`) y proyecciones SQL paginadas.
+    * `ADR-0015`: Caché híbrido L1/L2 (`HybridCache` + Redis Pub/Sub), resiliencia de `OpaService` y pre-generación de códigos QR.
+    * `ADR-0016`: Optimización de `CustomMediator` mediante delegados compilados en caché y pipeline behaviors (validación y telemetría).
+    * `ADR-0017`: Gobernanza de telemetría OpenTelemetry, enriquecimiento global con `trace_id`/`span_id` y sanitización de PII (`customer_phone`).
+  * **5 Propuestas de Producto (`[PROPUESTA - PENDIENTE DE APROBACION]`):** Especificaciones EARS, escenarios Gherkin y desglose de tareas Frontend/Backend para posibles nuevas aplicaciones del ecosistema sujetas a evaluación del equipo:
+    * `propuesta-prd-kds-avanzado.md`: Sistema Avanzado de Pantallas de Cocina (KDS Multi-Estación).
+    * `propuesta-prd-waiter-mobile-app.md`: Aplicación Móvil de Salón y Comanda para Mozos (Waiter App).
+    * `propuesta-prd-inventory-recipes.md`: Gestión de Inventario, Insumos y Escandallos (Recetas).
+    * `propuesta-prd-loyalty-feedback.md`: Fidelización, Reseñas Verificadas y CRM Gastronómico.
+    * `propuesta-prd-fiscal-billing.md`: Facturación Electrónica Fiscal e Integración de Pagos QR.
+
+---
 
 ## Hito: Aislamiento de Contenedor DI para `--seed`, Registro Diferido de Redis e Integración de Contratos/PRDs (PR #11 en `resto-core-back`)
 * **Fecha:** 1 de Noviembre de 2026

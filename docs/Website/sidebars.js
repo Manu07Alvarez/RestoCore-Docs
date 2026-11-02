@@ -1,4 +1,4 @@
-// @ts-check
+﻿// @ts-check
 
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
@@ -11,7 +11,19 @@ const sidebars = {
         'clientes/vision-y-alcance',
         'clientes/prd-menu-qr',
         'clientes/prd-panel-admin',
-        'clientes/prd-comanda-cocina'
+        'clientes/prd-comanda-cocina',
+        {
+          type: 'category',
+          label: 'Propuestas en Evaluación (Pendientes de Aprobación)',
+          collapsed: false,
+          items: [
+            'clientes/propuestas/propuesta-prd-kds-avanzado',
+            'clientes/propuestas/propuesta-prd-waiter-mobile-app',
+            'clientes/propuestas/propuesta-prd-inventory-recipes',
+            'clientes/propuestas/propuesta-prd-loyalty-feedback',
+            'clientes/propuestas/propuesta-prd-fiscal-billing'
+          ]
+        }
       ]
     }
   ],
@@ -40,7 +52,12 @@ const sidebars = {
             'developers/adr/0009-compilacion-aot-y-caching-perimetral-de-lienzo-canvas',
             'developers/adr/0010-baja-suave-de-platos-y-snapshots-inmutables',
             'developers/adr/0011-jerarquia-de-metricas-analiticas-y-telemetria-de-menu',
-            'developers/adr/0012-postergacion-seguimiento-ocupacion-mesas-qr'
+            'developers/adr/0012-postergacion-seguimiento-ocupacion-mesas-qr',
+            'developers/adr/optimizacion-persistencia-jsonb-gin-postgresql',
+            'developers/adr/cache-hibrido-l1-l2-latencia-menu-qr',
+            'developers/adr/optimizacion-mediador-cqrs-pipeline-behaviors',
+            'developers/adr/gobernanza-telemetria-opentelemetry-y-privacidad',
+            'developers/adr/procesamiento-reactivo-streams-y-ciclo-vida-sockets'
           ]
         }
       ]
@@ -51,6 +68,7 @@ const sidebars = {
       collapsed: false,
       items: [
         'developers/arquitectura-backend-dotnet',
+        'developers/diagnostico-optimizaciones-backend',
         'developers/contrato-api',
         'developers/observabilidad-telemetria',
         'developers/modelo-c4-sistema',
