@@ -2,6 +2,17 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Aislamiento de Contenedor DI para `--seed`, Registro Diferido de Redis e Integración de Contratos/PRDs (PR #11 en `resto-core-back`)
+* **Fecha:** 1 de Noviembre de 2026
+* **Commits:** `d3eab4a`, `4bfa15a`, `329f4f4` y `496f7a1` en `resto-core-back`
+* **Resumen:** Sincronización de mejoras arquitectónicas en el arranque del backend, índices parciales y alineación integral de contratos y PRDs (`/backend-sync`):
+  * **Contenedor DI Aislado para `--seed` (`Program.cs`):** Al detectar el argumento `--seed`, el proceso construye una colección de servicios independiente y liviana (`seedServices` con `Logging`, `ITenantContext`, `IPasswordHasher` y `ApplicationDbContext`), ejecutando `DatabaseSeeder.SeedAsync(seedProvider)` y retornando antes de construir `WebApplication`, eliminando cualquier dependencia con Redis, OPA, WebSockets o Background Workers durante el semillado.
+  * **Factoría Diferida (Lazy Registration) de `IConnectionMultiplexer`:** Registro de `StackExchange.Redis.IConnectionMultiplexer` mediante delegado de factoría (`_ => ConnectionMultiplexer.Connect(redisConfig)`), evitando conexiones TCP síncronas bloqueantes durante la configuración del contenedor de dependencias.
+  * **Ajuste de Filtros en Índices Parciales (`MenuConfiguration.cs`):** Actualización de los predicados de filtro en índices parciales de `menu_items` (`.HasFilter("is_deleted = False")` y `.HasFilter("is_deleted = True")`).
+  * **Homologación de Contrato OpenAPI 3.1 y Tareas de Backend en PRDs:** Incorporación de `POST /api/v1/orders` (`SubmitOrderCommand`), `/api/v1/admin/images/presigned-url`, `GET /api/v1/admin/tables/{id}/qr` y `POST /api/v1/admin/tenants` en `specs/openapi.yaml` y `contrato-api.md`, y marcado de tareas de backend completadas (`[x]`) en `prd-admin-crud.md`, `prd-comanda-cocina.md` y `prd-menu-qr.md`.
+
+---
+
 ## Hito: Autenticación de Usuarios en PostgreSQL y Semillero Bajo Demanda (`DatabaseSeeder` - Feature 010 en `resto-core-back`)
 * **Fecha:** 26 de Octubre de 2026
 * **Commit:** `5558ea3` en `resto-core-back`

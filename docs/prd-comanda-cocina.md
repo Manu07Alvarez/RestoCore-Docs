@@ -49,9 +49,9 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 * Construir la vista de resumen de pedido en el cliente de mesa.
 
 ### Tareas de Backend (`resto-core-back`)
-* Diseñar el endpoint de emisión de comandas: `POST /api/v1/orders`.
-* Desarrollar el productor de cola en Redis Streams y el worker consumidor FIFO.
-* Implementar el servidor WebSocket con canales aislados por `tenant_id`.
+* [x] Diseñar e implementar el endpoint de emisión de comandas: `POST /api/v1/orders` (`SubmitOrderCommand` -> `HTTP 202 Accepted`).
+* [x] Desarrollar el productor de cola en Redis Streams (`RedisOrderQueueService`, `orders:{tenant_slug}`) y el worker consumidor FIFO (`OrderProcessorWorker` con `XREADGROUP` y `XACK`).
+* [x] Implementar el servidor WebSocket (`/ws/kitchen?tenant={tenant_slug}`) con canales aislados por `tenant_slug` (`KitchenWebSocketManager`).
 
 ---
 

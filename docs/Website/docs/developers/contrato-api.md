@@ -22,7 +22,7 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
    * `POST /api/v1/admin/menu/publish`: Desencadena el pipeline asíncrono de compilación Ahead-Of-Time (AOT), compresión de activos en SeaweedFS a WebP/AVIF con variantes `srcset`, generación del artefacto estático y purgado inmediato de la caché perimetral en la CDN (SLA < 3 segundos).
 
 3. **Carga Asíncrona de Imágenes y Fondos (SeaweedFS):**
-   * `POST /api/v1/storage/presigned-upload` (y alias `/api/v1/media/presigned-url`): Emisión de URLs temporales pre-firmadas para transmitir fotografías de platos y fondos de lienzo directamente a SeaweedFS sin saturar el servidor de API (`ADR-0004`).
+   * `POST /api/v1/admin/images/presigned-url` (y `/api/v1/storage/presigned-upload` / `/api/v1/media/presigned-url`): Emisión de URLs temporales pre-firmadas para transmitir fotografías de platos y fondos de lienzo directamente a SeaweedFS sin saturar el servidor de API (`ADR-0004`).
 
 4. **Administración CRUD de Catálogo, Ciclo de Vida y Mesas (Protegido `owner` / `tenant_admin`):**
    * `GET /api/v1/admin/categories`: Listado de categorías del restaurante ordenadas por `sort_order`.
@@ -50,7 +50,9 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
    * `POST /api/v1/admin/items/{id}/restore`: Reincorporación inmediata de un plato archivado a la carta digital dentro de la ventana de 7 días previa a la purga física.
    * `GET /api/v1/admin/tables/{id}/qr`: Descarga de código QR dinámico para mesas físicas en formato vectorial (SVG) o binario (PNG).
 
-5. **Comandas de Cocina y Salón (Protegido `cook` / `waiter`):**
+5. **Comandas de Cocina y Salón (Ingesta FIFO Redis Streams, WebSockets & Stock):**
+   * `POST /api/v1/orders`: Ingesta asíncrona de comandas desde la mesa (validando `tenant_slug` activo y `table_token` válido), encolamiento secuencial FIFO en Redis Streams (`orders:{tenant_slug}`), persistencia de snapshots inmutables en JSONB (`items_snapshot`) por `OrderProcessorWorker` y retorno inmediato `202 Accepted` (`ADR-0007`, `ADR-0010`).
+   * `GET (WebSocket) /ws/kitchen?tenant={tenant_slug}`: Canal WebSocket en tiempo real gestionado por `KitchenWebSocketManager` para el despacho instantáneo (< 100ms) de eventos `ORDER_CREATED` hacia las pantallas KDS de cocina del restaurante.
    * `PATCH /api/v1/kitchen/items/{id}/availability`: Pausa y reanudación inmediata de disponibilidad de stock desde la cocina.
    * `GET /healthz` & `GET /ready`: Monitoreo de vitalidad y verificación concurrente de dependencias externas (PostgreSQL, Redis, SeaweedFS, OPA).
 

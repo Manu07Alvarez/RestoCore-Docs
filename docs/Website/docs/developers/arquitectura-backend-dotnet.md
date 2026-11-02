@@ -87,6 +87,7 @@ Provee la implementación concreta de servicios externos, criptografía y persis
 * **Persistencia (`ApplicationDbContext`):**
   * Global Query Filters a nivel modelo (`builder.Entity<T>().HasQueryFilter(e => e.TenantId == _tenantContext.CurrentTenantId)`), blindando el aislamiento multi-tenant y filtrando automáticamente platos en baja suave (`!e.IsDeleted`).
   * Mapeo de `User` en `UserConfiguration` (tabla `users`, índice único `IX_users_Email`, columna `Roles` como `text[]` en PostgreSQL y clave foránea opcional a `tenants`).
+  * Índices parciales en `MenuConfiguration` sobre `menu_items`: `.HasFilter("is_deleted = False")` para `(TenantId, CategoryId, DisplayOrder)` y `.HasFilter("is_deleted = True")` para `(DeletedAt)`.
   * Mapeo de `LayoutConfig` como columna `JSONB` en `TenantConfiguration`.
   * Configuración `MenuPublishJobConfiguration` con índices compuestos por `TenantId` y `Status`.
   * **Invalidación de Caché Post-Commit:** Detección de mutaciones en entidades del menú durante `SaveChangesAsync()` e invalidación atómica de la caché en memoria y Redis una vez confirmada la transacción en PostgreSQL.
@@ -117,7 +118,7 @@ Provee la implementación concreta de servicios externos, criptografía y persis
 Punto de entrada HTTP estructurado mediante Minimal APIs:
 * **Mapeo Modular de Rutas:** Agrupación semántica (`AuthEndpoints`, `PublicMenuEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminProfileEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `OrderEndpoints`, `StorageEndpoints`, `HealthEndpoints`).
 * **Autenticación e Identidad JWT (`AuthEndpoints`):** Expone `POST /api/v1/auth/login` (delegando la validación contra PostgreSQL en `LoginCommand` a través de `ISender`) y `GET /api/v1/auth/me`. Emisión de tokens firmados HMAC-SHA256 con claims estructurados (`sub`, `tenant_id`, `tenant_slug`, `role`).
-* **Modo CLI de Semillado (`--seed`):** `Program.cs` detecta el argumento `--seed`, omite el registro de servicios de segundo plano (Redis Streams, WebSockets, Workers), ejecuta `DatabaseSeeder.SeedAsync(app.Services)` y termina limpiamente.
+* **Modo CLI de Semillado Aislado (`--seed`) y Factoría Diferida de Redis:** `Program.cs` detecta el argumento `--seed` antes de configurar el servidor web, construye un contenedor `ServiceCollection` liviano y aislado (`seedServices` con `Logging`, `ITenantContext`, `IPasswordHasher` y `ApplicationDbContext`), ejecuta `DatabaseSeeder.SeedAsync(seedProvider)` y retorna de inmediato sin instanciar `WebApplication`. En modo servidor web normal, registra `IConnectionMultiplexer` mediante una factoría diferida (`_ => ConnectionMultiplexer.Connect(redisConfig)`) para evitar bloqueos síncronos en el armado de DI.
 * **Middleware de Registro Estructurado:** Captura el método HTTP, ruta, `TenantSlug`, `TenantId`, código de respuesta y duración en milisegundos correlacionado con el contexto W3C Trace de OpenTelemetry.
 * **Soporte de Caché Condicional y Distribución Perimetral:** Implementación de cabeceras HTTP `ETag` y `Cache-Control: public, max-age=3600, s-maxage=86400` con retorno HTTP 304 Not Modified ante coincidencias de `If-None-Match`.
 * **Manejo Centralizado de Excepciones:** `GlobalExceptionHandler` intercepta fallos y genera respuestas estándar RFC 7807 (Problem Details) con trazabilidad `traceId`.
@@ -135,7 +136,7 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Redirección QR**| `GET` | `/r/{tenant_slug}` | Público (Anónimo) | 302 | Enlace corto para códigos QR impresos. |
 | **Lienzo Admin** | `PUT` | `/api/v1/admin/menu/layout` | `TenantAdminOnly` | 200, 400, 401, 403, 404 | Guarda o restablece la configuración geométrica de lienzo en JSONB (`ADR-0008`). |
 | **Compilación Admin**| `POST`| `/api/v1/admin/menu/publish` | `TenantAdminOnly` | 202, 401, 403, 422, 500 | Desencadena pipeline AOT y purgado perimetral CDN con SLA < 3s (`ADR-0006`). |
-| **Almacenamiento** | `POST` | `/api/v1/storage/presigned-upload` | `TenantAdminOnly` | 200, 400, 401, 403 | Genera URL pre-firmada temporal hacia SeaweedFS (`ADR-0004`). |
+| **Almacenamiento** | `POST` | `/api/v1/admin/images/presigned-url` (y `/api/v1/storage/presigned-upload`) | `TenantAdminOnly` | 200, 400, 401, 403 | Genera URL pre-firmada temporal hacia SeaweedFS (`ADR-0004`). |
 | **Catálogo Admin** | `GET` | `/api/v1/admin/categories` | `TenantAdminOnly` | 200, 401, 403 | Listado de categorías del restaurante ordenadas por `sort_order`. |
 | **Catálogo Admin** | `GET` | `/api/v1/admin/categories/{id}` | `TenantAdminOnly` | 200, 401, 403, 404 | Consulta de detalle de una categoría de menú. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/categories` | `TenantAdminOnly` | 201, 400, 401, 403 | Alta de categorías para el Tenant activo. |
@@ -162,6 +163,7 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items/{id}/modifiers` | `TenantAdminOnly` | 201, 400, 401, 403 | Agregado de modificadores y opciones de precio. |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/branding` | `TenantAdminOnly` | 200, 401, 403 | Actualización de identidad visual y colores. |
 | **Pedidos / Comandas**| `POST` | `/api/v1/orders` | Público (Token Mesa)| 202, 400, 404 | Ingesta asíncrona de pedidos hacia cola FIFO en Redis Streams y despacho WebSocket (`ADR-0007`). |
+| **WebSocket Cocina** | `GET (WS)` | `/ws/kitchen?tenant={tenant_slug}` | Canal por Tenant | 101, 400 | Suscripción WebSocket en tiempo real para notificaciones `ORDER_CREATED` hacia pantallas KDS (`ADR-0007`). |
 | **Mesas & QR** | `GET` | `/api/v1/admin/tables/{id}/qr` | `TenantAdminOnly` | 200, 401, 403, 404 | Descarga de QR vectorial (SVG/PNG) para contexto de comanda (`ADR-0012`). |
 | **Cocina (KDS)** | `PATCH` | `/api/v1/kitchen/items/{id}/availability` | `KitchenOnly` | 200, 401, 403, 404 | Cambio inmediato de disponibilidad de stock con reintento concurrente. |
 | **SuperAdmin** | `POST` | `/api/v1/admin/tenants` | `SuperAdminOnly` | 201, 400, 401, 403, 409 | Aprovisionamiento de nuevos restaurantes. |
@@ -247,9 +249,9 @@ dotnet run --project src/RestoCore.Api/RestoCore.Api.csproj -- --seed
 ```
 
 Cuando `Program.cs` detecta el argumento `--seed`:
-1. Omite la inicialización de Redis Streams, WebSockets y Background Workers.
+1. Intercepta el inicio antes de configurar `WebApplication` y construye un contenedor `ServiceCollection` aislado (`seedServices` con `Logging`, `ITenantContext`, `IPasswordHasher` y `ApplicationDbContext`), omitiendo por completo Redis, OPA, WebSockets y Background Workers.
 2. Asegura la existencia y compatibilidad del esquema relacional (`EnsureCreatedAsync` y sentencias DDL idempotentes para `users`, `tenants` y `menu_items`).
-3. Ejecuta `DatabaseSeeder.SeedAsync(app.Services)` e finaliza el proceso inmediatamente con código de salida `0`.
+3. Ejecuta `DatabaseSeeder.SeedAsync(seedProvider)` y finaliza el proceso inmediatamente con código de salida `0`.
 
 ### 7.3. Catálogo de Datos Semillados en PostgreSQL (`DatabaseSeeder.cs`)
 
