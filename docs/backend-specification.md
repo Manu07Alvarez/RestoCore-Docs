@@ -27,7 +27,7 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * **`RestoCore.Domain`:** Entidades (`Tenant`, `User`, `Category`, `MenuItem`, `ModifierGroup`, `ModifierOption`, `Table`, `Order`, `OrderItem`, `MenuPublishJob`), Value Objects (`BrandingConfig`, `LayoutConfig`, `CanvasElement`, `OrderItemModifier`), contratos e interfaces de alcance tenant.
 * **`RestoCore.Application`:** Handlers CQRS totalmente desacoplados de `IApplicationDbContext` que interactúan exclusivamente con repositorios e `IUnitOfWork`. Interfaces de seguridad (`IPasswordHasher`), DTOs de respuesta y validadores FluentValidation organizados por features (`Auth`, `Categories`, `MenuItems`, `Kitchen`, `MenuLayout`, `Orders`, `PublicMenu`, `QrCodes`, `Storage`, `Tenants`).
 * **`RestoCore.Infrastructure`:** `ApplicationDbContext`, mapeos de EF Core, repositorios concretos (`CatalogRepository`, `KitchenRepository`, `MenuLayoutRepository`, `TenantRepository`, `UserRepository`, `OrderRepository`), `UnitOfWork` transaccional con manejo de concurrencia, servicio criptográfico `PasswordHasher` (PBKDF2-HMAC-SHA256), semillero bajo demanda `DatabaseSeeder`, servicio AOT `MenuCompilationService`, purgado CDN `LocalDevelopmentCdnPurgeService`, middleware multi-tenant, cliente OPA, servicio QR, servicio de almacenamiento SeaweedFS y extensiones OTel.
-* **`RestoCore.Api`:** Mapeo modular de Minimal APIs (`AuthEndpoints`, `PublicMenuEndpoints`, `PublicOrderEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `StorageEndpoints`, `HealthEndpoints`), soporte de ejecución CLI para semillado (`--seed`), middleware de logging estructurado y `GlobalExceptionHandler`.
+* **`RestoCore.Api`:** Mapeo modular de Minimal APIs (`AuthEndpoints`, `PublicMenuEndpoints`, `OrderEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminProfileEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `StorageEndpoints`, `HealthEndpoints`), canal WebSocket `/ws/kitchen`, soporte de ejecución CLI para semillado con contenedor DI aislado (`--seed` -> `seedServices`), registro diferido de `IConnectionMultiplexer`, middleware de logging estructurado y `GlobalExceptionHandler`.
 * **`RestoCore.UnitTests`:** 61+ pruebas unitarias superadas (incluyendo autenticación con `LoginCommandHandlerTests`, `PasswordHasherTests` y resiliencia de concurrencia en cocina).
 * **`RestoCore.IntegrationTests`:** 11 pruebas de integración con `CustomWebApplicationFactory` y `ContainerizedStackFixture` superadas.
 * **`RestoCore.SecurityTests`:** 1 prueba de aislamiento multi-tenant en base de datos superada.
@@ -41,7 +41,7 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `GET /r/{tenant_slug}`: Enlace corto de redirección para códigos QR físicos.
 * `PUT /api/v1/admin/menu/layout`: Guardado de configuración geométrica de lienzo Canvas en JSONB (`TenantAdminOnly`).
 * `POST /api/v1/admin/menu/publish`: Desencadenamiento del pipeline AOT y purgado CDN con retorno HTTP 202 Accepted (`TenantAdminOnly`).
-* `POST /api/v1/storage/presigned-upload`: Generación de URLs pre-firmadas temporales para subida de fotos a SeaweedFS (`TenantAdminOnly`).
+* `POST /api/v1/admin/images/presigned-url` (y `/api/v1/storage/presigned-upload`): Generación de URLs pre-firmadas temporales para subida de fotos a SeaweedFS (`TenantAdminOnly`).
 * `GET /api/v1/admin/categories`: Listado ordenado de categorías del restaurante (`TenantAdminOnly`).
 * `GET /api/v1/admin/categories/{id}`: Consulta detallada de una categoría de menú (`TenantAdminOnly`).
 * `POST /api/v1/admin/categories`: Alta de categorías (requiere rol `TenantAdminOnly`).
@@ -68,6 +68,8 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `Worker PurgeArchivedDishesWorker`: Tarea programada en segundo plano para purga física definitiva de registros con `deleted_at <= NOW() - INTERVAL '7 days'` y eliminación de imágenes en SeaweedFS.
 * `POST /api/v1/admin/items/{id}/modifiers`: Asignación de grupos de modificadores.
 * `PUT /api/v1/admin/branding`: Configuración de identidad visual del restaurante.
+* `POST /api/v1/orders`: Ingesta asíncrona de pedidos con encolamiento FIFO en Redis Streams (`orders:{tenant_slug}`), persistencia secuencial de snapshots en JSONB (`OrderProcessorWorker`) y despacho de eventos `ORDER_CREATED` vía WebSockets (`HTTP 202 Accepted`).
+* `GET (WS) /ws/kitchen?tenant={tenant_slug}`: Canal WebSocket aislado por establecimiento para transmisión de comandas en tiempo real hacia pantallas KDS (`KitchenWebSocketManager`).
 * `GET /api/v1/admin/tables/{id}/qr`: Generación y descarga de códigos QR para mesas (SVG/PNG).
 * `PATCH /api/v1/kitchen/items/{id}/availability`: Alternancia de disponibilidad de productos para cocina con reintento concurrente (`KitchenOnly`).
 * `POST /api/v1/admin/tenants`: Aprovisionamiento de nuevas cuentas gastronómicas (`SuperAdminOnly`).
@@ -81,7 +83,7 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 
 ### 4.1. Ejecución del Semillero Bajo Demanda (`--seed` y `scripts/seed-db.ps1`)
 * Al levantar los contenedores (`docker compose -f docker-compose.dev.yml up -d`) o iniciar la API normalmente, el sistema **no** inserta datos de muestra de forma automática.
-* El aprovisionamiento de datos de desarrollo se ejecuta **bajo demanda** mediante el argumento CLI `--seed` en `Program.cs` (`DatabaseSeeder.SeedAsync`) o invocando el script de PowerShell `./scripts/seed-db.ps1` (con soporte de `-ForceMigrate` para aplicar migraciones previas).
+* El aprovisionamiento de datos de desarrollo se ejecuta **bajo demanda** mediante el argumento CLI `--seed` en `Program.cs` (`DatabaseSeeder.SeedAsync`) o invocando el script de PowerShell `./scripts/seed-db.ps1` (con soporte de `-ForceMigrate` para aplicar migraciones previas). Al recibir `--seed`, `Program.cs` construye un contenedor `ServiceCollection` liviano y aislado (`seedServices` con `Logging`, `ITenantContext`, `IPasswordHasher` y `ApplicationDbContext`) sin instanciar `WebApplication` ni conectar a Redis, OPA o WebSockets.
 * La rutina es **100% idempotente**: verifica la existencia previa de cada registro antes de insertarlo o actualizarlo.
 
 ### 4.2. Cuentas de Desarrollo Semilladas en PostgreSQL (Tabla `users`)

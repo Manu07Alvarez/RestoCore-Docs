@@ -1503,6 +1503,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
 
+  /api/v1/orders:
+    post:
+      tags:
+        - Orders - FIFO Queue & WebSockets
+      summary: Ingestar nuevo pedido de forma asíncrona (HTTP 202 Accepted)
+      description: >
+        Valida que el restaurante (`tenant_slug`) esté activo y que el token de mesa (`table_token`)
+        corresponda a una mesa física habilitada. Encola el pedido en la cola secuencial FIFO de Redis
+        Streams (`orders:{tenant_slug}`) para persistencia de snapshots inmutables en PostgreSQL JSONB
+        (`items_snapshot`) por `OrderProcessorWorker` y notificación en tiempo real vía WebSockets
+        (`/ws/kitchen?tenant={tenant_slug}`) (ADR-0007, ADR-0010).
+      operationId: submitOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitOrderRequest'
+      responses:
+        '202':
+          description: Pedido aceptado y encolado en Redis Streams para procesamiento secuencial FIFO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitOrderResponse'
+        '400':
+          description: El pedido no contiene elementos o tiene parámetros inválidos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Restaurante inactivo o token de mesa inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/admin/tables/{id}/qr:
+    get:
+      tags:
+        - Admin - Tables & QR
+      summary: Generar y descargar código QR de mesa física (SVG o PNG)
+      description: >
+        Genera la matriz QR de una mesa física apuntando al enlace corto contextual `/r/{tenant_slug}?table_token={token}`.
+      operationId: getTableQrCode
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [svg, png]
+            default: svg
+      responses:
+        '200':
+          description: Imagen QR generada en formato vectorial SVG o binario PNG
+        '401':
+          description: No autenticado
+        '403':
+          description: No autorizado
+        '404':
+          description: Mesa no encontrada
+
+  /api/v1/admin/tenants:
+    post:
+      tags:
+        - Platform SuperAdmin - Tenants
+      summary: Aprovisionar nuevo establecimiento gastronómico (SuperAdmin)
+      operationId: provisionTenant
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Establecimiento aprovisionado exitosamente
+        '400':
+          description: Datos inválidos
+        '401':
+          description: No autenticado
+        '403':
+          description: Requiere rol super_admin
+        '409':
+          description: Slug de restaurante duplicado
+
+  /api/v1/admin/images/presigned-url:
+    post:
+      tags:
+        - Storage - SeaweedFS
+      summary: Generar URL pre-firmada para subida de imágenes (Ruta implementada en StorageEndpoints)
+      operationId: generateAdminImagePresignedUrl
+      security:
+        - BearerAuth: []
+      requestBody:
+        $ref: '#/components/requestBodies/PresignedUploadRequest'
+      responses:
+        '200':
+          description: URL pre-firmada emitida exitosamente
+        '400':
+          description: Extensión no permitida o tamaño superior a 5 MB
+        '401':
+          description: No autenticado
+        '403':
+          description: No autorizado
+
   /healthz:
     get:
       tags:
@@ -2452,6 +2564,77 @@ components:
             type: string
             format: uuid
           example: ["3fa85f64-5717-4562-b3fc-2c963f66afa6"]
+
+    SubmitOrderItemDto:
+      type: object
+      required:
+        - menuItemId
+        - quantity
+      properties:
+        menuItemId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        instructions:
+          type: string
+          nullable: true
+          example: Sin sal agregada
+        selectedOptionIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+
+    SubmitOrderRequest:
+      type: object
+      required:
+        - tenantSlug
+        - tableToken
+        - items
+      properties:
+        tenantSlug:
+          type: string
+          example: el-gato-negro
+        tableToken:
+          type: string
+          example: mesa-1-el-gato-negro
+        notes:
+          type: string
+          nullable: true
+          example: Mesa junto a la ventana
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmitOrderItemDto'
+
+    SubmitOrderResponse:
+      type: object
+      required:
+        - orderId
+        - status
+        - tenantSlug
+        - tableNumber
+        - queuedAt
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: queued
+        tenantSlug:
+          type: string
+          example: el-gato-negro
+        tableNumber:
+          type: integer
+          example: 1
+        queuedAt:
+          type: string
+          format: date-time
 
 
 

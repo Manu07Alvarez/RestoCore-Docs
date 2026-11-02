@@ -80,18 +80,19 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 
 ### Tareas de Backend (`resto-core-back`)
 * [x] Diseñar e implementar endpoints REST protegidos: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/admin/categories`, `POST /api/v1/admin/items`, `DELETE /api/v1/admin/items/{id}`, `POST /api/v1/admin/items/{id}/restore`, `GET /api/v1/admin/tables/{id}/qr`, `POST /api/v1/storage/presigned-upload`.
-* [ ] Implementar endpoints de ABMC de categorías: `GET /api/v1/admin/categories`, `GET /api/v1/admin/categories/{id}`, `PUT /api/v1/admin/categories/{id}`, `PATCH /api/v1/admin/categories/{id}`, `DELETE /api/v1/admin/categories/{id}` con validación de restricción relacional (HTTP 409 Conflict si posee platos asociados).
-* [ ] Implementar endpoints de perfil de restaurante: `GET /api/v1/admin/tenant/profile`, `PUT /api/v1/admin/tenant/profile`, `PATCH /api/v1/admin/tenant/profile` para gestión de nombre, teléfono, dirección y horarios.
+* [x] Implementar endpoints de ABMC de categorías: `GET /api/v1/admin/categories`, `GET /api/v1/admin/categories/{id}`, `PUT /api/v1/admin/categories/{id}`, `PATCH /api/v1/admin/categories/{id}`, `DELETE /api/v1/admin/categories/{id}` con validación de restricción relacional (HTTP 409 Conflict si posee platos asociados).
+* [x] Implementar endpoints de perfil de restaurante: `GET /api/v1/admin/tenant/profile`, `PUT /api/v1/admin/tenant/profile`, `PATCH /api/v1/admin/tenant/profile` para gestión de nombre, teléfono, dirección y horarios.
 * [ ] Implementar endpoints de RBAC y roles personalizados:
   * `GET /api/v1/admin/permissions`: Retorna catálogo maestro de privilegios granulares.
   * `GET`, `POST`, `GET /{id}`, `PUT /{id}`, `PATCH /{id}`, `DELETE /{id}` en `/api/v1/admin/roles`: CRUD de roles propios del tenant con privilegios asignados.
   * `GET` y `PUT /api/v1/admin/staff/{user_id}/roles`: Consulta y asignación de roles a colaboradores.
 * [ ] Integrar evaluación dinámica de permisos en el middleware de autorización OPA (`input.action in input.user.permissions`).
-* [ ] Extender `PublicMenuResponse` y handler de menú público para exponer `phone_number`, `address` y `business_hours` del tenant.
-* [ ] Implementar endpoints REST de modificación de platos: `PUT /api/v1/admin/items/{id}` (modificación total) y `PATCH /api/v1/admin/items/{id}` (modificación parcial de atributos).
-* [ ] Implementar validación relacional estricta: rechazo con HTTP 422/400 si el `category_id` suministrado no existe o no pertenece al tenant activo.
-* [ ] Actualizar flujo de baja suave en `DELETE /api/v1/admin/items/{id}` para registrar `deleted_at = UtcNow` y programar la purga a 7 días.
-* [ ] Implementar worker de purga en segundo plano (`PurgeArchivedDishesWorker`) que ejecute `DELETE FROM dishes WHERE is_deleted = true AND deleted_at <= NOW() - INTERVAL '7 days'` y elimine los binarios correspondientes en SeaweedFS.
+* [x] Extender `PublicMenuResponse` y handler de menú público para exponer `phone_number`, `address` y `business_hours` del tenant.
+* [x] Implementar endpoints REST de modificación de platos: `PUT /api/v1/admin/items/{id}` (modificación total) y `PATCH /api/v1/admin/items/{id}` (modificación parcial de atributos).
+* [x] Implementar validación relacional estricta: rechazo con HTTP 422/400 si el `category_id` suministrado no existe o no pertenece al tenant activo.
+* [x] Actualizar flujo de baja suave en `DELETE /api/v1/admin/items/{id}` para registrar `deleted_at = UtcNow` y programar la purga a 7 días.
+* [x] Implementar worker de purga en segundo plano (`PurgeArchivedDishesWorker`) que ejecute `DELETE FROM dishes WHERE is_deleted = true AND deleted_at <= NOW() - INTERVAL '7 days'` y elimine los binarios correspondientes en SeaweedFS.
+* [x] Implementar autenticación de usuarios persistida en PostgreSQL (`User` entity, `IUserRepository`), hashing criptográfico PBKDF2-HMAC-SHA256 (`IPasswordHasher`) y semillero idempotente bajo demanda (`DatabaseSeeder` con contenedor DI aislado `--seed` y `./scripts/seed-db.ps1`).
 * [x] Implementar la mutación de estructuras `JSONB` en PostgreSQL para menús, modificadores y la gestión de tablas físicas.
 * [x] Implementar el patrón Repositorio segregado (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`) y `IUnitOfWork` con resiliencia ante concurrencia optimista (`DbUpdateConcurrencyException`).
 

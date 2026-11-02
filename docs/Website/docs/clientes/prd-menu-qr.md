@@ -97,14 +97,14 @@ En fases posteriores, la medición precisa de ocupación y rotación se implemen
 * Implementar la acción de restauración de platos desde el archivo de catálogo.
 
 ### Tareas de Backend (`resto-core-back`)
-* Implementar el endpoint `POST /api/v1/admin/menu/publish` para desencadenar el pipeline asíncrono de compilación AOT, compresión de activos e invalidación de caché.
-* Diseñar el pipeline de aplanamiento geométrico AOT en menos de 3 segundos SLA.
+* [x] Implementar el endpoint `POST /api/v1/admin/menu/publish` para desencadenar el pipeline asíncrono de compilación AOT, compresión de activos e invalidación de caché.
+* [x] Diseñar el pipeline de aplanamiento geométrico AOT en menos de 3 segundos SLA.
 * Implementar el servicio de optimización de imágenes (WebP/AVIF y generación de `srcset`) conectado con SeaweedFS.
-* Configurar la integración con la API de la CDN para emisión de purgado de caché selectivo por tag del tenant.
-* Configurar cabeceras de respuesta HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`) en `GET /api/v1/tenants/{tenant_slug}/menu`.
-* Implementar `SoftDeleteMenuItemCommand` (`DELETE /api/v1/admin/items/{id}`) verificando ausencia de pedidos activos en KDS antes de marcar `IsDeleted = true`.
-* Mapear en `OrderItem` los campos inmutables `ItemNameSnapshot`, `UnitPriceSnapshot` y `AppliedModifiersJson` con clave `MenuItemId` nulable.
-* Implementar `RestoreMenuItemCommand` (`POST /api/v1/admin/items/{id}/restore`).
+* [x] Configurar la integración con la API de la CDN para emisión de purgado de caché selectivo por tag del tenant.
+* [x] Configurar cabeceras de respuesta HTTP (`Cache-Control: public, max-age=3600, s-maxage=86400`) en `GET /api/v1/tenants/{tenant_slug}/menu`.
+* [x] Implementar `SoftDeleteMenuItemCommand` (`DELETE /api/v1/admin/items/{id}`) verificando ausencia de pedidos activos en KDS antes de marcar `IsDeleted = true`.
+* [x] Mapear en `OrderItem` los campos inmutables `ItemNameSnapshot`, `UnitPriceSnapshot` y `AppliedModifiersJson` con clave `MenuItemId` nulable.
+* [x] Implementar `RestoreMenuItemCommand` (`POST /api/v1/admin/items/{id}/restore`).
 
 ---
 
