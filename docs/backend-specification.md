@@ -1,4 +1,4 @@
-# Especificación Técnica del Backend (.NET 10) - RestoCore
+﻿# Especificación Técnica del Backend (.NET 10) - RestoCore
 
 Este documento reúne la especificación técnica, arquitectura, interfaces, infraestructura y estado de implementación del servicio de backend (`resto-core-back`).
 

@@ -1,4 +1,4 @@
-# Documento de Requisitos de Producto (PRD): Panel de Administración CRUD para Restaurantes
+﻿# Documento de Requisitos de Producto (PRD): Panel de Administración CRUD para Restaurantes
 
 Este documento establece las especificaciones funcionales, límites de alcance y criterios de aceptación para el módulo de **Administración CRUD del Restaurante** dentro del ecosistema RestoCore (Módulo 02 del Playbook de Ingeniería y Fase 3 del Flujo de Trabajo Homologado SDD).
 

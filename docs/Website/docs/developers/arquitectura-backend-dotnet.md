@@ -1,4 +1,4 @@
-# Arquitectura y Especificación del Backend (.NET 10)
+﻿# Arquitectura y Especificación del Backend (.NET 10)
 
 Este documento detalla la arquitectura de software, componentes modulares, modelo de datos, suite de pruebas y estado de desarrollo del repositorio de backend de la plataforma: **`resto-core-back`**.
 
