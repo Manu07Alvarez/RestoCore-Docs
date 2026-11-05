@@ -1,4 +1,4 @@
-# Especificación de API REST (OpenAPI 3.1 & Seguridad OPA)
+﻿# Especificación de API REST (OpenAPI 3.1 & Seguridad OPA)
 
 Este documento describe la interfaz técnica REST API, contratos de datos y políticas de autorización declarativas para el ecosistema **RestoCore**.
 

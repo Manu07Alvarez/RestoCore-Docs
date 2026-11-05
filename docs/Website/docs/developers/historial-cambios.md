@@ -2,6 +2,18 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Soporte de Color RGB y Logotipo Corporativo en Branding y Perfil de Restaurante (PR #14 en `resto-core-back`)
+* **Fecha:** 5 de Noviembre de 2026
+* **Commits:** `d04840d` y `c854b62` en `resto-core-back`
+* **Resumen:** Sincronización de especificaciones y capacidades del Value Object `BrandingConfig` y endpoints de perfil e identidad visual del restaurante (`/backend-sync`):
+  * **Soporte y Validación de Color en Formato RGB y Hex (`BrandingConfig.ApplyRgbColor`):** Implementación de parser mediante expresiones regulares compiladas (`GeneratedRegex`) que acepta formatos funcionales (`rgb(r, g, b)`), tuplas (`r, g, b`) y códigos hexadecimales (`#RRGGBB` / `#RGB`) en el rango `0-255`, sincronizando bidireccionalmente las propiedades `PrimaryColorRgb` y `PrimaryColor`.
+  * **Logotipo de la Empresa (`LogoUrl`):** Adición de la propiedad `LogoUrl` en `BrandingConfig`, `TenantProfileResponse` y en la respuesta de la carta pública (`PublicBrandingDto.LogoUrl`), permitiendo el alojamiento de imágenes corporativas en SeaweedFS.
+  * **Endpoints de Identidad Visual (`AdminCatalogEndpoints.cs`):** Implementación de `GET /api/v1/admin/branding` (`GetBrandingQuery`), `PUT /api/v1/admin/branding` (`UpdateBrandingCommand`) y `PATCH /api/v1/admin/branding` (`PatchBrandingCommand`), con soporte de purgado de caché en CDN (`ICdnPurgeService`) al confirmar transacciones.
+  * **Extensión de Perfil de Establecimiento (`AdminProfileEndpoints.cs`):** Inclusión de `primary_color_rgb`, `logo_url` y el objeto `branding` en las respuestas de `GET /api/v1/admin/tenant/profile` y parámetros opcionales en `PUT /profile` y `PATCH /profile`.
+  * **Suite de Pruebas Unitarias:** Nuevos escenarios en `TenantProfileHandlerTests` que validan la sincronización de colores RGB/Hex, persistencia de logotipo, actualización parcial y rechazo con `ArgumentException` ante valores RGB fuera de rango (`> 255`) o formatos inválidos.
+
+---
+
 ## Hito: Diagnóstico Integral de Optimizaciones de Backend, ADRs 0014-0018 y 5 PRDs Propuestos para Expansión del Ecosistema
 * **Fecha:** 2 de Noviembre de 2026
 * **Resumen:** Auditoría arquitectónica y de rendimiento del backend (`OPT-01` a `OPT-10`), formalización de 4 Registros de Decisiones de Arquitectura y diseño de 5 Propuestas de Producto (PRDs) pendientes de evaluación del equipo:
