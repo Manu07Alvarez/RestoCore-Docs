@@ -1,4 +1,4 @@
-# Especificación Técnica del Backend (.NET 10) - RestoCore
+﻿# Especificación Técnica del Backend (.NET 10) - RestoCore
 
 Este documento reúne la especificación técnica, arquitectura, interfaces, infraestructura y estado de implementación del servicio de backend (`resto-core-back`).
 
@@ -8,7 +8,7 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * **Runtime & Lenguaje:** .NET 10 / C# 13.
 * **Paradigma de Arquitectura:** Clean Architecture con desacoplamiento en capas (Domain, Application, Infrastructure, Api).
 * **Patrón de Casos de Uso:** Mediador permisivo zero-dependency (`RestoCore.Application/Common/Mediator`) para CQRS de alto rendimiento.
-* **Patrón Repositorio & Unit of Work:** Segregación de interfaces de persistencia por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`, `IUserRepository`, `IOrderRepository`) y delimitación transaccional atómica con `IUnitOfWork`.
+* **Patrón Repositorio & Unit of Work:** Segregación de interfaces de persistencia por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`, `IUserRepository`, `IOrderRepository`, `IAnalyticsRepository`) y delimitación transaccional atómica con `IUnitOfWork`.
 * **Resiliencia ante Concurrencia Optimista:** Reintentos automáticos con retroceso exponencial (*exponential backoff*) y fluctuación aleatoria (*jitter*) ante colisiones `DbUpdateConcurrencyException` en operaciones críticas (ej. alternancia de disponibilidad en cocina).
 * **Persistencia:** Entity Framework Core con Npgsql sobre PostgreSQL 16+.
 * **Esquemas Híbridos:** Almacenamiento semiestructurado mediante columnas `JSONB` e índices `GIN` para etiquetas dietarias, configuraciones de branding y maquetación de lienzo Canvas (`ADR-0003`, `ADR-0008`).
@@ -24,10 +24,10 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 ---
 
 ## 2. Proyectos del Ecosistema Backend
-* **`RestoCore.Domain`:** Entidades (`Tenant`, `User`, `Category`, `MenuItem`, `ModifierGroup`, `ModifierOption`, `Table`, `Order`, `OrderItem`, `MenuPublishJob`), Value Objects (`BrandingConfig`, `LayoutConfig`, `CanvasElement`, `OrderItemModifier`), contratos e interfaces de alcance tenant.
-* **`RestoCore.Application`:** Handlers CQRS totalmente desacoplados de `IApplicationDbContext` que interactúan exclusivamente con repositorios e `IUnitOfWork`. Interfaces de seguridad (`IPasswordHasher`), DTOs de respuesta y validadores FluentValidation organizados por features (`Auth`, `Categories`, `MenuItems`, `Kitchen`, `MenuLayout`, `Orders`, `PublicMenu`, `QrCodes`, `Storage`, `Tenants`).
-* **`RestoCore.Infrastructure`:** `ApplicationDbContext`, mapeos de EF Core, repositorios concretos (`CatalogRepository`, `KitchenRepository`, `MenuLayoutRepository`, `TenantRepository`, `UserRepository`, `OrderRepository`), `UnitOfWork` transaccional con manejo de concurrencia, servicio criptográfico `PasswordHasher` (PBKDF2-HMAC-SHA256), semillero bajo demanda `DatabaseSeeder`, servicio AOT `MenuCompilationService`, purgado CDN `LocalDevelopmentCdnPurgeService`, middleware multi-tenant, cliente OPA, servicio QR, servicio de almacenamiento SeaweedFS y extensiones OTel.
-* **`RestoCore.Api`:** Mapeo modular de Minimal APIs (`AuthEndpoints`, `PublicMenuEndpoints`, `OrderEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminProfileEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `StorageEndpoints`, `HealthEndpoints`), canal WebSocket `/ws/kitchen`, soporte de ejecución CLI para semillado con contenedor DI aislado (`--seed` -> `seedServices`), registro diferido de `IConnectionMultiplexer`, middleware de logging estructurado y `GlobalExceptionHandler`.
+* **`RestoCore.Domain`:** Entidades (`Tenant` con `PlanTier`, `User`, `Category`, `MenuItem` con `EstimatedCost`, `ModifierGroup`, `ModifierOption`, `Table`, `Order`, `OrderItem`, `MenuPublishJob`, `DailyMenuTrafficSummary`, `DailyItemViewSummary`, `DailyCategoryInteractionSummary`, `HourlyMenuTrafficSummary`), Value Objects (`BrandingConfig`, `LayoutConfig`, `CanvasElement`, `OrderItemModifier`), contratos e interfaces de alcance tenant.
+* **`RestoCore.Application`:** Handlers CQRS totalmente desacoplados de `IApplicationDbContext` que interactúan exclusivamente con repositorios e `IUnitOfWork`. Interfaces de seguridad (`IPasswordHasher`), DTOs de respuesta y validadores FluentValidation organizados por features (`Analytics`, `Auth`, `Categories`, `MenuItems`, `Kitchen`, `MenuLayout`, `Orders`, `PublicMenu`, `QrCodes`, `Storage`, `Tenants`).
+* **`RestoCore.Infrastructure`:** `ApplicationDbContext`, mapeos de EF Core, repositorios concretos (`CatalogRepository`, `KitchenRepository`, `MenuLayoutRepository`, `TenantRepository`, `UserRepository`, `OrderRepository`, `AnalyticsRepository`), `UnitOfWork` transaccional con manejo de concurrencia, servicio criptográfico `PasswordHasher` (PBKDF2-HMAC-SHA256), semillero bajo demanda `DatabaseSeeder`, servicio AOT `MenuCompilationService`, purgado CDN `LocalDevelopmentCdnPurgeService`, middleware multi-tenant, cliente OPA, servicio QR, servicio de almacenamiento SeaweedFS y extensiones OTel.
+* **`RestoCore.Api`:** Mapeo modular de Minimal APIs (`AuthEndpoints`, `PublicMenuEndpoints`, `OrderEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminProfileEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `AnalyticsEndpoints`, `KitchenEndpoints`, `StorageEndpoints`, `HealthEndpoints`), canal WebSocket `/ws/kitchen`, soporte de ejecución CLI para semillado con contenedor DI aislado (`--seed` -> `seedServices`), registro diferido de `IConnectionMultiplexer`, middleware de logging estructurado y `GlobalExceptionHandler`.
 * **`RestoCore.UnitTests`:** 61+ pruebas unitarias superadas (incluyendo autenticación con `LoginCommandHandlerTests`, `PasswordHasherTests` y resiliencia de concurrencia en cocina).
 * **`RestoCore.IntegrationTests`:** 11 pruebas de integración con `CustomWebApplicationFactory` y `ContainerizedStackFixture` superadas.
 * **`RestoCore.SecurityTests`:** 1 prueba de aislamiento multi-tenant en base de datos superada.
@@ -60,6 +60,8 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * DELETE /api/v1/admin/roles/{id}: Eliminación de rol personalizado con validación de colaboradores asociados (OwnerOnly).
 * GET /api/v1/admin/staff/{user_id}/roles: Consulta de roles ostentados por un colaborador (TenantAdminOnly).
 * PUT /api/v1/admin/staff/{user_id}/roles: Asignación o revocación de roles a miembros del personal (OwnerOnly).
+* `GET /api/v1/admin/items`: Listado de platos del restaurante con filtro opcional `categoryId` e `includeDeleted` (`TenantAdminOnly`).
+* `GET /api/v1/admin/items/{id}`: Consulta detallada de un plato del catálogo administrativo (`TenantAdminOnly`).
 * `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única a grandes rasgos (`1:N` vía `category_id`), validando existencia y persistiendo etiquetas dietéticas multifacéticas N:M (`DietaryLabels`: vegano, sin TACC, bebidas con/sin alcohol).
 * `PUT /api/v1/admin/items/{id}`: Modificación completa de atributos del plato (precio, categoría, descripción, modificadores y etiquetas dietéticas) con invalidación CDN (`TenantAdminOnly`).
 * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades del plato con reintento concurrente (`TenantAdminOnly`).
@@ -73,8 +75,8 @@ Este documento reúne la especificación técnica, arquitectura, interfaces, inf
 * `GET /api/v1/admin/tables/{id}/qr`: Generación y descarga de códigos QR para mesas (SVG/PNG).
 * `PATCH /api/v1/kitchen/items/{id}/availability`: Alternancia de disponibilidad de productos para cocina con reintento concurrente (`KitchenOnly`).
 * `POST /api/v1/admin/tenants`: Aprovisionamiento de nuevas cuentas gastronómicas (`SuperAdminOnly`).
-* `POST /api/v1/analytics/collect`: Ingesta anónima de eventos analíticos sin impacto en latencia LCP.
-* `GET /api/v1/admin/analytics/dashboard`: Métricas de Nivel 1 (Ingeniería de Menú) y Nivel 2 (distribución horaria/dispositivos).
+* `POST /api/v1/analytics/collect`: Ingesta anónima asíncrona (`202 Accepted`) de eventos analíticos (`menu_view`, `item_view`, `category_click`) encolados en `AnalyticsEventQueue` (`BoundedChannel<AnalyticsEventMessage>`) y procesados en segundo plano por `AnalyticsAggregationWorker` sin impacto en latencia LCP (`ADR-0011`).
+* `GET /api/v1/admin/analytics/dashboard`: Panel analítico protegido por política OPA `AnalyticsReadOnly` (`read_metrics`) que retorna Métricas de Nivel 1 (`priority_high_metrics`: visitas QR, top 10 platos y categorías, y Matriz de Ingeniería de Menú — `stars`, `plowhorses`, `puzzles`, `dogs` — calculada con `EstimatedCost ?? BasePrice * 0.30m`) y, para planes `Pro`/`Enterprise`, Métricas de Nivel 2 (`priority_medium_metrics`: `peak_hours` de 24h y `device_breakdown`), omitiendo rotación de mesas por QR (`ADR-0011`, `ADR-0012`).
 * `GET /healthz` & `GET /ready`: Monitoreo de disponibilidad del proceso y conexión concurrente con PostgreSQL, Redis, SeaweedFS y OPA.
 
 ---
