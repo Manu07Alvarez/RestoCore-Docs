@@ -1,4 +1,4 @@
-# Especificación de API REST (OpenAPI 3.1 & Seguridad OPA)
+﻿# Especificación de API REST (OpenAPI 3.1 & Seguridad OPA)
 
 Este documento describe la interfaz técnica REST API, contratos de datos y políticas de autorización declarativas para el ecosistema **RestoCore**.
 
@@ -43,6 +43,8 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
    * `DELETE /api/v1/admin/roles/{id}`: Baja de rol personalizado con bloqueo (`409 Conflict` si es un rol de sistema o si tiene colaboradores asignados).
    * `GET /api/v1/admin/staff/{user_id}/roles`: Consulta de roles y privilegios ostentados por un colaborador.
    * `PUT /api/v1/admin/staff/{user_id}/roles`: Asignación o revocación de roles a un miembro del personal del restaurante.
+   * `GET /api/v1/admin/items`: Listado de platos del restaurante ordenados por `DisplayOrder`, con filtrado opcional por categoría (`categoryId`) e inclusión opcional de platos archivados en baja suave (`includeDeleted`).
+   * `GET /api/v1/admin/items/{id}`: Consulta detallada de un plato específico perteneciente al tenant activo.
    * `POST /api/v1/admin/items`: Creación de platos asociados a una categoría única (`1:N` vía `category_id`), con asignación múltiple de etiquetas dietéticas N:M (`dietary_labels`: vegano, sin TACC, bebida sin alcohol, etc.) y alérgenos. Retorna `422 Unprocessable Entity` si la categoría no existe en el tenant.
    * `PUT /api/v1/admin/items/{id}`: Modificación total de los datos de un plato existente (precio, categoría, descripción, modificadores y etiquetas dietéticas N:M). Invalida la caché perimetral en la CDN.
    * `PATCH /api/v1/admin/items/{id}`: Modificación parcial de propiedades específicas del plato (disponibilidad, deltas de precio, actualización de etiquetas dietéticas N:M o cambio de categoría).
@@ -57,8 +59,8 @@ El contrato oficial se especifica bajo el estándar OpenAPI 3.1.0 dentro del arc
    * `GET /healthz` & `GET /ready`: Monitoreo de vitalidad y verificación concurrente de dependencias externas (PostgreSQL, Redis, SeaweedFS, OPA).
 
 6. **Analítica de Menú e Ingesta de Telemetría (ADR-0011 & ADR-0012):**
-   * `POST /api/v1/analytics/collect`: Ingesta anónima y asíncrona de eventos de navegación de comensales (apertura de carta, visualización de plato o interacción con categorías) sin afectar el presupuesto LCP (< 2s).
-   * `GET /api/v1/admin/analytics/dashboard`: Consulta protegida (`owner` / `tenant_admin`) de la jerarquía analítica: Tráfico QR (visitas día/mes), platos más vistos, Matriz de Ingeniería de Menú (Estrellas, Caballos de Batalla, Puzzles, Perros) y categorías principales, con desglose de Plan Pro (curva de horas pico y segmentación de dispositivos). La medición de ocupación y rotación de mesas por QR queda pospuesta (`ADR-0012`), reservada para el futuro módulo de Turnos y Recepción (Waitlist).
+   * `POST /api/v1/analytics/collect`: Ingesta anónima y asíncrona (`202 Accepted`) de eventos de navegación de comensales (`menu_view`, `item_view`, `category_click` y tipo de dispositivo `mobile`, `desktop`, `tablet`) encolados en `IAnalyticsEventQueue` (`BoundedChannel<AnalyticsEventMessage>` de capacidad `10.000`) y agregados en segundo plano por `AnalyticsAggregationWorker` sin afectar el presupuesto LCP (< 2s).
+   * `GET /api/v1/admin/analytics/dashboard`: Consulta protegida (`AnalyticsReadOnly` / `OpaRequirement("read_metrics")` para `owner`, `tenant_admin`, `super_admin`) con filtro de fechas ISO-8601 (`from`, `to`): retorna Métricas de Nivel 1 (`priority_high_metrics`: visitas QR en el rango y últimos 30 días, top 10 platos más vistos incluyendo históricos en baja suave, top 10 categorías más interactuadas y Matriz de Ingeniería de Menú — `stars`, `plowhorses`, `puzzles`, `dogs` — calculada sobre platos activos con costo estimado `EstimatedCost ?? BasePrice * 0.30m`) y, condicionalmente para tenants en Plan `Pro` o `Enterprise`, Métricas de Nivel 2 (`priority_medium_metrics`: distribución de 24 horas pico `peak_hours` y desglose porcentual `device_breakdown`). Omite heurísticas de rotación o permanencia en mesa por QR (`ADR-0012`).
 
 ---
 
