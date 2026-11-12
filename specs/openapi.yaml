@@ -1068,6 +1068,124 @@ paths:
         '400':
           description: Evento o parámetros inválidos
 
+  /api/v1/admin/branding:
+    get:
+      tags:
+        - Admin - Catalog
+      summary: Consultar configuración visual de identidad y marca (Branding)
+      description: >
+        Retorna la configuración visual del restaurante perteneciente al tenant activo,
+        incluyendo colores primario/secundario en formato Hex y RGB sincronizado (`primary_color_rgb`),
+        logo corporativo (`logo_url`), tipografía y modo de presentación.
+      operationId: getBranding
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Configuración de branding obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandingConfig'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    put:
+      tags:
+        - Admin - Catalog
+      summary: Modificación total de identidad visual y colores de marca
+      description: >
+        Actualiza completamente la configuración visual de la marca del restaurante.
+        Soporta formato RGB (ej. `rgb(230, 57, 70)` o `230, 57, 70`) o Hexadecimal (`#E63946`)
+        en `primary_color_rgb` / `primary_color` sincronizando ambos campos de forma automática,
+        y actualiza el logotipo corporativo (`logo_url`) con invalidación de la caché perimetral en CDN.
+      operationId: updateBranding
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBrandingRequest'
+      responses:
+        '200':
+          description: Configuración de branding actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandingConfig'
+        '400':
+          description: Formato de color inválido o parámetros incorrectos
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+    patch:
+      tags:
+        - Admin - Catalog
+      summary: Modificación parcial de identidad visual y logotipo de marca
+      description: >
+        Actualiza selectivamente atributos específicos de la identidad de marca (ej. actualizar únicamente
+        el color RGB de marca `primary_color_rgb` o la URL del logotipo `logo_url`) sin requerir el reenvío completo.
+        Invalida la caché de la carta pública en CDN.
+      operationId: patchBranding
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchBrandingRequest'
+      responses:
+        '200':
+          description: Atributos de branding actualizados exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandingConfig'
+        '400':
+          description: Formato de color inválido
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: No autenticado
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
   /api/v1/admin/tenant/profile:
     get:
       tags:
@@ -2546,6 +2664,81 @@ components:
           nullable: true
           description: Horarios de atención al público
 
+    UpdateBrandingRequest:
+      type: object
+      properties:
+        primary_color_rgb:
+          type: string
+          description: Color principal en formato RGB (ej. 'rgb(230, 57, 70)' o '230, 57, 70') o Hex ('#E63946')
+          example: 'rgb(230, 57, 70)'
+        primary_color:
+          type: string
+          example: '#E63946'
+        secondary_color:
+          type: string
+          nullable: true
+          example: '#1D3557'
+        background_color:
+          type: string
+          nullable: true
+          example: '#F8F9FA'
+        text_color:
+          type: string
+          nullable: true
+          example: '#2B2D42'
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          example: 'https://storage.restocore.app/logos/restaurante.webp'
+        cover_banner_url:
+          type: string
+          format: uri
+          nullable: true
+          example: 'https://storage.restocore.app/banners/portada.webp'
+        font_family:
+          type: string
+          nullable: true
+          example: 'Inter, sans-serif'
+        layout_mode:
+          type: string
+          nullable: true
+          example: 'GridWithImages'
+
+    PatchBrandingRequest:
+      type: object
+      properties:
+        primary_color_rgb:
+          type: string
+          description: Color de marca en formato RGB o Hexadecimal
+          example: 'rgb(25, 135, 84)'
+        primary_color:
+          type: string
+          example: '#198754'
+        secondary_color:
+          type: string
+          nullable: true
+        background_color:
+          type: string
+          nullable: true
+        text_color:
+          type: string
+          nullable: true
+        logo_url:
+          type: string
+          format: uri
+          nullable: true
+          example: 'https://storage.restocore.app/logos/nuevo-logo.webp'
+        cover_banner_url:
+          type: string
+          format: uri
+          nullable: true
+        font_family:
+          type: string
+          nullable: true
+        layout_mode:
+          type: string
+          nullable: true
     PermissionDto:
       type: object
       required:
