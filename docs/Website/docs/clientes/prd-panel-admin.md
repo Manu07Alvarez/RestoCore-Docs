@@ -79,7 +79,7 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 * Desarrollar la vista de gestión de mesas con previsualización y exportación de códigos QR.
 
 ### Tareas de Backend (`resto-core-back`)
-* [x] Diseñar e implementar endpoints REST protegidos: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/admin/categories`, `POST /api/v1/admin/items`, `DELETE /api/v1/admin/items/{id}`, `POST /api/v1/admin/items/{id}/restore`, `GET /api/v1/admin/tables/{id}/qr`, `POST /api/v1/storage/presigned-upload`.
+* [x] Diseñar e implementar endpoints REST protegidos: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/admin/categories`, `GET /api/v1/admin/items`, `GET /api/v1/admin/items/{id}`, `POST /api/v1/admin/items`, `DELETE /api/v1/admin/items/{id}`, `POST /api/v1/admin/items/{id}/restore`, `GET /api/v1/admin/tables/{id}/qr`, `POST /api/v1/storage/presigned-upload`.
 * [x] Implementar endpoints de ABMC de categorías: `GET /api/v1/admin/categories`, `GET /api/v1/admin/categories/{id}`, `PUT /api/v1/admin/categories/{id}`, `PATCH /api/v1/admin/categories/{id}`, `DELETE /api/v1/admin/categories/{id}` con validación de restricción relacional (HTTP 409 Conflict si posee platos asociados).
 * [x] Implementar endpoints de perfil de restaurante: `GET /api/v1/admin/tenant/profile`, `PUT /api/v1/admin/tenant/profile`, `PATCH /api/v1/admin/tenant/profile` para gestión de nombre, teléfono, dirección y horarios.
 * [ ] Implementar endpoints de RBAC y roles personalizados:
@@ -94,6 +94,7 @@ Este documento establece las especificaciones funcionales, límites de alcance y
 * [x] Implementar worker de purga en segundo plano (`PurgeArchivedDishesWorker`) que ejecute `DELETE FROM dishes WHERE is_deleted = true AND deleted_at <= NOW() - INTERVAL '7 days'` y elimine los binarios correspondientes en SeaweedFS.
 * [x] Implementar autenticación de usuarios persistida en PostgreSQL (`User` entity, `IUserRepository`), hashing criptográfico PBKDF2-HMAC-SHA256 (`IPasswordHasher`) y semillero idempotente bajo demanda (`DatabaseSeeder` con contenedor DI aislado `--seed` y `./scripts/seed-db.ps1`).
 * [x] Implementar la mutación de estructuras `JSONB` en PostgreSQL para menús, modificadores y la gestión de tablas físicas.
+* [x] Implementar ingesta asíncrona de telemetría de menú (`POST /api/v1/analytics/collect` con `AnalyticsEventQueue` y `AnalyticsAggregationWorker`) y endpoint de panel analítico e Ingeniería de Menú (`GET /api/v1/admin/analytics/dashboard` protegido por política OPA `AnalyticsReadOnly` / `read_metrics`) (`ADR-0011`, `ADR-0012`).
 * [x] Implementar el patrón Repositorio segregado (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`) y `IUnitOfWork` con resiliencia ante concurrencia optimista (`DbUpdateConcurrencyException`).
 
 ---
