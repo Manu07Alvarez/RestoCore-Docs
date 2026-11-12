@@ -57,7 +57,8 @@ const sidebars = {
             'developers/adr/cache-hibrido-l1-l2-latencia-menu-qr',
             'developers/adr/optimizacion-mediador-cqrs-pipeline-behaviors',
             'developers/adr/gobernanza-telemetria-opentelemetry-y-privacidad',
-            'developers/adr/procesamiento-reactivo-streams-y-ciclo-vida-sockets'
+            'developers/adr/procesamiento-reactivo-streams-y-ciclo-vida-sockets',
+            'developers/adr/empaquetado-distribucion-licencias-perpetuas'
           ]
         }
       ]
