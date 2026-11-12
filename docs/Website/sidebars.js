@@ -68,11 +68,23 @@ const sidebars = {
       collapsed: false,
       items: [
         'developers/arquitectura-backend-dotnet',
+        'developers/especificacion-licenciamiento-tecnico',
         'developers/diagnostico-optimizaciones-backend',
         'developers/contrato-api',
         'developers/observabilidad-telemetria',
         'developers/modelo-c4-sistema',
         'developers/historial-cambios'
+      ]
+    }
+  ],
+  comercialSidebar: [
+    {
+      type: 'category',
+      label: 'Mercado y Licenciamiento',
+      collapsed: false,
+      items: [
+        'comercial/modelo-comercial-y-distribucion',
+        'comercial/escala-precios-mercado'
       ]
     }
   ],
