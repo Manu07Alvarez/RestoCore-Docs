@@ -1,4 +1,4 @@
-# Arquitectura y Especificación del Backend (.NET 10)
+﻿# Arquitectura y Especificación del Backend (.NET 10)
 
 Este documento detalla la arquitectura de software, componentes modulares, modelo de datos, suite de pruebas y estado de desarrollo del repositorio de backend de la plataforma: **`resto-core-back`**.
 
@@ -12,7 +12,7 @@ El backend de RestoCore es un servicio modular diseñado bajo los principios de 
 * **Lenguaje y Runtime:** C# 13 sobre .NET 10 SDK.
 * **Framework Web:** ASP.NET Core Minimal APIs con mapeo modular de endpoints.
 * **Patrón de Casos de Uso:** Mediador CQRS permisivo de cero dependencias (*Zero-Dependency Mediator* en `RestoCore.Application/Common/Mediator`), desacoplado de bibliotecas externas para maximizar rendimiento y velocidad de resolución.
-* **Patrón Repositorio y Unidad de Trabajo (Unit of Work):** Persistencia encapsulada mediante interfaces segregadas por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`, `IOrderRepository`, `IUserRepository`) y delimitación atómica de transacciones con `IUnitOfWork`.
+* **Patrón Repositorio y Unidad de Trabajo (Unit of Work):** Persistencia encapsulada mediante interfaces segregadas por Bounded Contexts (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`, `IOrderRepository`, `IUserRepository`, `IAnalyticsRepository`) y delimitación atómica de transacciones con `IUnitOfWork`.
 * **Resiliencia ante Concurrencia Optimista:** Manejo explícito de colisiones transaccionales (`DbUpdateConcurrencyException`) mediante reintentos con retroceso exponencial (*exponential backoff*) y fluctuación aleatoria (*jitter*) en operaciones operativas de cocina.
 * **Validación:** FluentValidation integrado en la canalización de comandos de aplicación.
 * **Capa de Persistencia:** Entity Framework Core con el proveedor `Npgsql.EntityFrameworkCore.PostgreSQL`.
@@ -44,22 +44,23 @@ graph TD
 
 ### 2.1. `RestoCore.Domain` (Capa de Dominio)
 Contiene las entidades del negocio, invariantes y reglas de dominio puras sin dependencias externas:
-* **`Tenant`:** Representa un establecimiento gastronómico. Contiene nombre, slug único, estado activo, datos de contacto comercial (`PhoneNumber`, `Address`, `BusinessHours`), el Value Object `BrandingConfig` y la propiedad `LayoutConfig?` para la configuración de maquetación visual libre.
+* **`Tenant`:** Representa un establecimiento gastronómico. Contiene nombre, slug único, estado activo, nivel de suscripción (`PlanTier: string = "Standard"`, habilitando métricas avanzadas en planes `Pro` y `Enterprise`), datos de contacto comercial (`PhoneNumber`, `Address`, `BusinessHours`), el Value Object `BrandingConfig` y la propiedad `LayoutConfig?` para la configuración de maquetación visual libre.
 * **`User`:** Representa una identidad de usuario autenticada en la plataforma (`BaseEntity`). Contiene correo electrónico único (`Email`), nombre completo (`Name`), hash criptográfico de contraseña (`PasswordHash`), rol principal (`PrimaryRole`), arreglo de roles asignados (`Roles: string[]`), asociación opcional a un restaurante (`TenantId: Guid?`, nulo para administradores globales de plataforma) e indicador de estado activo (`IsActive: bool`).
 * **`LayoutConfig` (Value Object):** Estructura inmutable persistida como `JSONB` que almacena el estado del lienzo (`IsEnabled`), URL de imagen de fondo (`BackgroundUrl`), color hexadecimal de fondo (`BackgroundColor`) y la lista de elementos gráficos (`Elements`).
 * **`CanvasElement` (Value Object):** Representa la posición geométrica y capa de un plato o elemento en el lienzo: identificador de plato (`ItemId`), coordenadas relativas (`PosX`, `PosY` entre 0 y 100), dimensiones relativas (`Width`, `Height`), índice de profundidad (`ZIndex`) y estilos adicionales (`CustomStyles`).
 * **`MenuPublishJob`:** Entidad de dominio (`ITenantScopedEntity`) que registra y audita las ejecuciones del pipeline asíncrono de compilación Ahead-Of-Time (AOT): identificador único (`Id`), tenant asociado (`TenantId`), estado del trabajo (`Status`: Queued, Processing, Completed, Failed), hash criptográfico generado (`VersionHash`), cantidad de activos procesados (`AssetsProcessed`), duración total en milisegundos (`DurationMs`), mensaje de error (`ErrorMessage`), fecha de inicio (`CreatedAtUtc`) y fecha de finalización (`CompletedAtUtc`).
 * **`Category`:** Clasificador macro de productos en la carta como definición a grandes rasgos (`ITenantScopedEntity`). Soporta ordenamiento posicional (`DisplayOrder`), descripción, control de visibilidad (`IsActive`) y relación 1:N como entidad principal de una colección de platos (`ICollection<MenuItem> MenuItems`).
-* **`MenuItem`:** Plato o producto comercializable (`ITenantScopedEntity`). Pertenece obligatoriamente a una única categoría a grandes rasgos (`CategoryId: Guid`, asociación 1:N). Almacena nombre, descripción, precio base (`BasePrice`), imagen, estado de disponibilidad (`IsAvailable`), orden posicional (`DisplayOrder`), alérgenos (`Allergens: string[]`) y etiquetas dietéticas multifacéticas asociadas bajo relación N:M (`DietaryLabels: string[]` indexadas con GIN, soportando alimentos veganos y sin TACC concurrentes, y bebidas con o sin alcohol). Implementa banderas de ciclo de vida para baja suave (`IsDeleted: bool = false`, `DeletedAt: DateTimeOffset? = null`) con periodo de retención de 7 días (`ADR-0010`).
+* **`MenuItem`:** Plato o producto comercializable (`ITenantScopedEntity`). Pertenece obligatoriamente a una única categoría a grandes rasgos (`CategoryId: Guid`, asociación 1:N). Almacena nombre, descripción, precio base (`BasePrice`), costo estimado opcional (`EstimatedCost: decimal?`, utilizado para el cálculo de margen en la Matriz de Ingeniería de Menú con fallback del 30% sobre `BasePrice`), imagen, estado de disponibilidad (`IsAvailable`), orden posicional (`DisplayOrder`), alérgenos (`Allergens: string[]`) y etiquetas dietéticas multifacéticas asociadas bajo relación N:M (`DietaryLabels: string[]` indexadas con GIN, soportando alimentos veganos y sin TACC concurrentes, y bebidas con o sin alcohol). Implementa banderas de ciclo de vida para baja suave (`IsDeleted: bool = false`, `DeletedAt: DateTimeOffset? = null`) con periodo de retención de 7 días (`ADR-0010`).
 * **`Order` & `OrderItem`:** Entidades de comanda gastronómica y líneas de pedido histórico. `OrderItem` está desacoplada de mutaciones de catálogo mediante clave foránea nulable (`MenuItemId: Guid?` con regla `ON DELETE SET NULL`) y snapshots inmutables: `ItemNameSnapshot: string`, `UnitPriceSnapshot: decimal` y `SelectedModifiers: string` (`ADR-0010`).
 * **`ModifierGroup` & `ModifierOption`:** Agrupadores de adicionales y modificaciones con reglas de selección mínima y máxima (`MinSelection`, `MaxSelection`) y deltas de precio (`PriceDelta`).
 * **`Table`:** Identificador de mesa física en el salón. Contiene número de mesa, token de seguridad (`Token`) y estado activo.
+* **`DailyMenuTrafficSummary`, `DailyItemViewSummary`, `DailyCategoryInteractionSummary` & `HourlyMenuTrafficSummary`:** Entidades de agregación analítica precalculada (`ITenantScopedEntity`, `ADR-0011`) que almacenan por fecha UTC (`DateOnly`) el tráfico diario de aperturas QR desglosado por tipo de dispositivo (`QrVisitsCount`, `MobileCount`, `DesktopCount`, `TabletCount`), las visualizaciones diarias por plato (`ItemId`, `ViewsCount`), las interacciones diarias por categoría (`CategoryId`, `InteractionsCount`) y la distribución horaria de visitas (`HourOfDay` de `0` a `23`, `VisitsCount`).
 * **`ITenantScopedEntity`:** Interfaz contractual que garantiza que toda entidad de negocio contenga un `TenantId: Guid` para el particionamiento multi-tenant obligatorio.
 
 ### 2.2. `RestoCore.Application` (Capa de Aplicación)
 Implementa los casos de uso del sistema organizados por características funcionales (*Feature Folders*):
 * **Mediador Permisivo Zero-Dependency (`Common/Mediator`):** Implementación nativa de `IMediator`, `IRequest<TResponse>`, `IRequestHandler<TRequest, TResponse>` y `ISender`, eliminando la sobrecarga de dependencias de terceros.
-* **Desacoplamiento Estricto de Persistencia:** Todos los handlers CQRS en la capa de Aplicación han sido desacoplados de `IApplicationDbContext`. La interacción con la base de datos se realiza exclusivamente a través de interfaces de repositorios segregadas (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`, `IOrderRepository`, `IUserRepository`), el servicio `IPasswordHasher` y la delimitación transaccional con `IUnitOfWork`.
+* **Desacoplamiento Estricto de Persistencia:** Todos los handlers CQRS en la capa de Aplicación han sido desacoplados de `IApplicationDbContext`. La interacción con la base de datos se realiza exclusivamente a través de interfaces de repositorios segregadas (`ICatalogRepository`, `IKitchenRepository`, `IMenuLayoutRepository`, `ITenantRepository`, `IOrderRepository`, `IUserRepository`, `IAnalyticsRepository`), el servicio `IPasswordHasher` y la delimitación transaccional con `IUnitOfWork`.
 * **`Features/Auth`:**
   * **`LoginCommand` & `LoginCommandHandler`:** Valida las credenciales de acceso consultando `IUserRepository.GetUserByEmailWithTenantAsync`, verifica que la cuenta se encuentre activa (`IsActive`) y comprueba criptográficamente el hash PBKDF2 mediante `IPasswordHasher.VerifyPassword`. Si la validación falla, lanza `UnauthorizedAccessException` (traducido a `HTTP 401 Unauthorized`).
 * **`Features/PublicMenu`:** Consulta optimizada de la carta digital mediante `GetPublicMenuQuery`. Implementa:
@@ -71,7 +72,8 @@ Implementa los casos de uso del sistema organizados por características funcion
   * **`PublishMenuCommand`:** Registra un `MenuPublishJob`, inicia el pipeline asíncrono de compilación AOT mediante `IMenuCompilationService`, desencadena la invalidación perimetral a través de `ICdnPurgeService` y retorna HTTP 202 Accepted.
 * **`Features/Storage`:** Comando `GeneratePresignedUploadCommand` para la emisión de URLs pre-firmadas hacia SeaweedFS, con validación de extensiones permitidas (`.jpg`, `.jpeg`, `.png`, `.webp`) y límite de tamaño de 5 MB.
 * **`Features/Categories`:** Comandos y consultas para ABMC completo de categorías (`CreateCategoryCommand`, `UpdateCategoryCommand`, `PatchCategoryCommand`, `DeleteCategoryCommand`, `GetCategoriesQuery`, `GetCategoryByIdQuery`) con bloqueo relacional (`HTTP 409 Conflict`) si existen platos asociados.
-* **`Features/MenuItems`:** Casos de uso de gestión del catálogo de platos:
+* **`Features/MenuItems`:** Casos de uso de gestión y consulta del catálogo de platos:
+  * `GetMenuItemsQuery` & `GetMenuItemByIdQuery`: Consultas administrativas de platos por tenant con filtrado opcional por categoría (`CategoryId`) e inclusión opcional de platos archivados en baja suave (`IncludeDeleted`), o recuperación unitaria por `Id` validando pertenencia al tenant.
   * `CreateMenuItemCommand`: Alta de plato con asociación obligatoria a categoría 1:N (`CategoryId`), validación de existencia y preservación de `DietaryLabels` y `Allergens`.
   * `UpdateMenuItemCommand`: Modificación total de los datos del plato (`PUT /api/v1/admin/items/{id}`), validación de pertenencia categórica e invalidación de caché CDN.
   * `PatchMenuItemCommand`: Modificación parcial de campos (`PATCH /api/v1/admin/items/{id}`) con concurrencia optimista.
@@ -81,6 +83,9 @@ Implementa los casos de uso del sistema organizados por características funcion
 * **`Features/Orders`:** Comando `SubmitOrderCommand` para ingesta asíncrona de comandas con encolamiento FIFO en Redis Streams.
 * **`Features/QrCodes`:** Consulta y renderizado dinámico de códigos QR para mesas físicas (`GetTableQrQuery`).
 * **`Features/Tenants`:** Aprovisionamiento de nuevas cuentas (`ProvisionTenantCommand`), gestión de perfil comercial y contacto (`GetTenantProfileQuery`, `UpdateTenantProfileCommand`, `PatchTenantProfileCommand`) y personalización de marca (`UpdateBrandingCommand`).
+* **`Features/Analytics` (`ADR-0011` & `ADR-0012`):**
+  * `CollectAnalyticsEventCommand`: Valida el evento de telemetría anónima (`menu_view`, `item_view`, `category_click`; dispositivos `mobile`, `desktop`, `tablet`), comprueba que el tenant se encuentre activo y encola el mensaje `AnalyticsEventMessage` de forma no bloqueante en `IAnalyticsEventQueue`.
+  * `GetAnalyticsDashboardQuery`: Construye el panel analítico (`AnalyticsDashboardResponse`) para el rango ISO-8601 (`from`, `to`, por defecto últimos 30 días), calculando `PriorityHighMetricsDto` (visitas QR totales y mensuales, top 10 platos más vistos incluyendo históricos en baja suave, top 10 categorías y `MenuEngineeringMatrixDto` clasificando platos activos en `stars`, `plowhorses`, `puzzles` y `dogs` según popularidad media y margen unitario `BasePrice - (EstimatedCost ?? BasePrice * 0.30m)`) y `PriorityMediumMetricsDto` (curva de 24 horas `peak_hours` y porcentajes `device_breakdown`) exclusivamente cuando `tenant.PlanTier` es `Pro` o `Enterprise`.
 
 ### 2.3. `RestoCore.Infrastructure` (Capa de Infraestructura)
 Provee la implementación concreta de servicios externos, criptografía y persistencia:
@@ -90,6 +95,7 @@ Provee la implementación concreta de servicios externos, criptografía y persis
   * Índices parciales en `MenuConfiguration` sobre `menu_items`: `.HasFilter("is_deleted = False")` para `(TenantId, CategoryId, DisplayOrder)` y `.HasFilter("is_deleted = True")` para `(DeletedAt)`.
   * Mapeo de `LayoutConfig` como columna `JSONB` en `TenantConfiguration`.
   * Configuración `MenuPublishJobConfiguration` con índices compuestos por `TenantId` y `Status`.
+  * Configuración `AnalyticsConfiguration` mapeando las tablas `daily_menu_traffic_summaries` (índice único `(TenantId, DateUtc)`), `daily_item_view_summaries` (índice único `(TenantId, ItemId, DateUtc)`), `daily_category_interaction_summaries` (índice único `(TenantId, CategoryId, DateUtc)`) y `hourly_menu_traffic_summaries` (índice único `(TenantId, DateUtc, HourOfDay)`).
   * **Invalidación de Caché Post-Commit:** Detección de mutaciones en entidades del menú durante `SaveChangesAsync()` e invalidación atómica de la caché en memoria y Redis una vez confirmada la transacción en PostgreSQL.
 * **Criptografía e Identidad (`Identity/PasswordHasher.cs`):**
   * Implementa `IPasswordHasher` utilizando **PBKDF2-HMAC-SHA256** (`Rfc2898DeriveBytes.Pbkdf2`) con 100.000 iteraciones, salt criptográfico de 16 bytes (`RandomNumberGenerator.GetBytes`), clave derivada de 32 bytes, formato versionado `v1$100000$<salt_base64>$<hash_base64>` y validación inmune a ataques de temporización (`CryptographicOperations.FixedTimeEquals`).
@@ -102,10 +108,12 @@ Provee la implementación concreta de servicios externos, criptografía y persis
   * `MenuLayoutRepository`: Gestión de configuración geométrica de lienzo y ciclo de vida de `MenuPublishJob`.
   * `TenantRepository`: Resolución, verificación de unicidad de slugs, actualización de perfil de restaurante y gestión de mesas físicas con tokens de seguridad.
   * `OrderRepository`: Persistencia de órdenes y verificación de pedidos activos en cocina.
+  * `AnalyticsRepository`: Implementa `IAnalyticsRepository` para el upsert incremental de contadores diarios/horarios (`RecordEventAsync`) y las consultas de lecturas sin tracking (`AsNoTracking`) para el dashboard analítico.
   * `UnitOfWork`: Implementa `IUnitOfWork` administrando transacciones atómicas con soporte de liberación síncrona y asíncrona (`IDisposable` / `IAsyncDisposable`).
 * **Workers en Segundo Plano (`BackgroundServices/` & `Workers/`):**
   * `OrderProcessorWorker`: Consumidor de cola FIFO sobre Redis Streams para procesamiento de comandas y notificación WebSocket a cocina (`ADR-0007`).
   * `PurgeArchivedDishesWorker`: Tarea programada que purga físicamente platos con más de 7 días en baja suave y elimina activos asociados en SeaweedFS (`ADR-0010`).
+  * `AnalyticsEventQueue` & `AnalyticsAggregationWorker`: Cola acotada en memoria (`Channel.CreateBounded<AnalyticsEventMessage>(10_000)` con `BoundedChannelFullMode.Wait`) y consumidor en segundo plano (`BackgroundService`) que desacopla la ingesta HTTP `202 Accepted` de la escritura transaccional en PostgreSQL.
 * **Servicio de Compilación AOT (`MenuCompilationService`):** Implementa `IMenuCompilationService` para el preprocesamiento estático del menú, aplanamiento de capas geométricas y cálculo de tiempo de ejecución con SLA inferior a 3 segundos.
 * **Servicio de Purgado Perimetral CDN (`LocalDevelopmentCdnPurgeService`):** Implementa `ICdnPurgeService` emitiendo órdenes de invalidación perimetral por tag de tenant. Instrumentado con telemetría OpenTelemetry para registrar fallos con `error.code="CDN_PURGE_FAILURE"`.
 * **Almacenamiento Desacoplado (`SeaweedStorageService`):** Implementa `IStorageService` interactuando con la API S3 de SeaweedFS para emitir URLs de subida pre-firmadas temporales.
@@ -116,7 +124,7 @@ Provee la implementación concreta de servicios externos, criptografía y persis
 
 ### 2.4. `RestoCore.Api` (Capa de Presentación y Enrutamiento)
 Punto de entrada HTTP estructurado mediante Minimal APIs:
-* **Mapeo Modular de Rutas:** Agrupación semántica (`AuthEndpoints`, `PublicMenuEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminProfileEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `KitchenEndpoints`, `OrderEndpoints`, `StorageEndpoints`, `HealthEndpoints`).
+* **Mapeo Modular de Rutas:** Agrupación semántica (`AuthEndpoints`, `PublicMenuEndpoints`, `AdminMenuLayoutEndpoints`, `AdminCatalogEndpoints`, `AdminProfileEndpoints`, `AdminTableEndpoints`, `AdminTenantEndpoints`, `AnalyticsEndpoints`, `KitchenEndpoints`, `OrderEndpoints`, `StorageEndpoints`, `HealthEndpoints`).
 * **Autenticación e Identidad JWT (`AuthEndpoints`):** Expone `POST /api/v1/auth/login` (delegando la validación contra PostgreSQL en `LoginCommand` a través de `ISender`) y `GET /api/v1/auth/me`. Emisión de tokens firmados HMAC-SHA256 con claims estructurados (`sub`, `tenant_id`, `tenant_slug`, `role`).
 * **Modo CLI de Semillado Aislado (`--seed`) y Factoría Diferida de Redis:** `Program.cs` detecta el argumento `--seed` antes de configurar el servidor web, construye un contenedor `ServiceCollection` liviano y aislado (`seedServices` con `Logging`, `ITenantContext`, `IPasswordHasher` y `ApplicationDbContext`), ejecuta `DatabaseSeeder.SeedAsync(seedProvider)` y retorna de inmediato sin instanciar `WebApplication`. En modo servidor web normal, registra `IConnectionMultiplexer` mediante una factoría diferida (`_ => ConnectionMultiplexer.Connect(redisConfig)`) para evitar bloqueos síncronos en el armado de DI.
 * **Middleware de Registro Estructurado:** Captura el método HTTP, ruta, `TenantSlug`, `TenantId`, código de respuesta y duración en milisegundos correlacionado con el contexto W3C Trace de OpenTelemetry.
@@ -155,6 +163,8 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **Roles & Staff** | `DELETE`| `/api/v1/admin/roles/{id}` | `OwnerOnly` | 204, 401, 403, 404, 409 | Eliminación de rol personalizado con bloqueo si tiene personal asignado. |
 | **Roles & Staff** | `GET` | `/api/v1/admin/staff/{user_id}/roles` | `TenantAdminOnly` | 200, 401, 403, 404 | Consulta de roles ostentados por un colaborador. |
 | **Roles & Staff** | `PUT` | `/api/v1/admin/staff/{user_id}/roles` | `OwnerOnly` | 200, 400, 401, 403, 404 | Asignación y revocación de roles a miembros del personal. |
+| **Catálogo Admin** | `GET` | `/api/v1/admin/items` | `TenantAdminOnly` | 200, 401, 403 | Listado de platos del tenant con filtro opcional `categoryId` e `includeDeleted`. |
+| **Catálogo Admin** | `GET` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 401, 403, 404 | Detalle de un plato específico del catálogo administrativo. |
 | **Catálogo Admin** | `POST` | `/api/v1/admin/items` | `TenantAdminOnly` | 201, 400, 401, 403, 422 | Alta de platos asociados unívocamente a una categoría (1:N vía `category_id`), con etiquetas dietéticas (`DietaryLabels`). |
 | **Catálogo Admin** | `PUT` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación total del plato con validación relacional e invalidación CDN. |
 | **Catálogo Admin** | `PATCH` | `/api/v1/admin/items/{id}` | `TenantAdminOnly` | 200, 400, 401, 403, 404, 422 | Modificación parcial de propiedades individuales del plato. |
@@ -166,6 +176,8 @@ Punto de entrada HTTP estructurado mediante Minimal APIs:
 | **WebSocket Cocina** | `GET (WS)` | `/ws/kitchen?tenant={tenant_slug}` | Canal por Tenant | 101, 400 | Suscripción WebSocket en tiempo real para notificaciones `ORDER_CREATED` hacia pantallas KDS (`ADR-0007`). |
 | **Mesas & QR** | `GET` | `/api/v1/admin/tables/{id}/qr` | `TenantAdminOnly` | 200, 401, 403, 404 | Descarga de QR vectorial (SVG/PNG) para contexto de comanda (`ADR-0012`). |
 | **Cocina (KDS)** | `PATCH` | `/api/v1/kitchen/items/{id}/availability` | `KitchenOnly` | 200, 401, 403, 404 | Cambio inmediato de disponibilidad de stock con reintento concurrente. |
+| **Analítica Pública** | `POST` | `/api/v1/analytics/collect` | Público (Anónimo) | 202, 400 | Ingesta asíncrona no bloqueante de eventos `menu_view`, `item_view` y `category_click` (`ADR-0011`). |
+| **Analítica Admin** | `GET` | `/api/v1/admin/analytics/dashboard` | `AnalyticsReadOnly` (`read_metrics`) | 200, 400, 401, 403 | Panel de Tráfico QR, Matriz de Ingeniería de Menú y métricas Pro (`peak_hours`, `device_breakdown`) (`ADR-0011`, `ADR-0012`). |
 | **SuperAdmin** | `POST` | `/api/v1/admin/tenants` | `SuperAdminOnly` | 201, 400, 401, 403, 409 | Aprovisionamiento de nuevos restaurantes. |
 | **Salud** | `GET` | `/healthz` | Público (Anónimo) | 200 | Estado de vida del proceso del servidor. |
 | **Salud** | `GET` | `/ready` | Público (Anónimo) | 200, 503 | Estado de conectividad de PostgreSQL, Redis, SeaweedFS y OPA. |
@@ -188,7 +200,9 @@ El entorno de desarrollo local orquesta todos los servicios requeridos de manera
 
 El backend cuenta con una batería de pruebas automatizadas organizadas en tres proyectos de validación:
 
-### 5.1. Pruebas Unitarias (`RestoCore.UnitTests`) - 61+ Tests Superados
+### 5.1. Pruebas Unitarias (`RestoCore.UnitTests`) - 80+ Tests Superados
+* `MenuItemQueryHandlerTests`: Valida `GetMenuItemsQueryHandler` (filtrado por categoría, exclusión por defecto e inclusión explícita de platos archivados en baja suave) y `GetMenuItemByIdQueryHandler` (aislamiento por tenant y error `KeyNotFoundException`).
+* `CollectAnalyticsEventCommandHandlerTests` & `GetAnalyticsDashboardQueryHandlerTests`: Validan las reglas de ingesta de telemetría (`menu_view`, `item_view`, `category_click`), el cálculo exacto de los 4 cuadrantes de la Matriz de Ingeniería de Menú (`stars`, `plowhorses`, `puzzles`, `dogs`), la inclusión de vistas históricas de platos archivados en el top de visualizaciones y la segregación de métricas de Nivel 2 según `PlanTier` (`Standard` vs `Pro`/`Enterprise`).
 * `LoginCommandHandlerTests` & `PasswordHasherTests`: Validan el hashing criptográfico PBKDF2-HMAC-SHA256, verificación en tiempo constante, autenticación exitosa contra usuarios activos en base de datos y rechazo `UnauthorizedAccessException` ante contraseñas erróneas, usuarios inactivos o inexistentes.
 * `CategoryQueryHandlerTests`, `UpdatePatchCategoryCommandHandlerTests` & `DeleteCategoryCommandHandlerTests`: Validan el listado ordenado, consulta por ID, actualización total/parcial y bloqueo con `409 Conflict` al intentar eliminar categorías con platos asociados.
 * `TenantProfileHandlerTests` & `PublicMenuContactProfileTests`: Validan la consulta y modificación total/parcial de nombre comercial, teléfono, dirección y horarios de atención, así como su exposición en la carta pública.
@@ -203,6 +217,7 @@ El backend cuenta con una batería de pruebas automatizadas organizadas en tres 
 * `UpdateMenuLayoutValidatorTests` & `MenuCompilationServiceTests`: Validan reglas geométricas estrictas y compilación AOT (< 3 segundos).
 
 ### 5.2. Pruebas de Integración (`RestoCore.IntegrationTests`)
+* `AnalyticsEndpointsTests`: Valida el flujo integrado de ingesta `POST /api/v1/analytics/collect` (`202 Accepted`), procesamiento asíncrono por `AnalyticsAggregationWorker` y consulta protegida `GET /api/v1/admin/analytics/dashboard` (incluyendo autorización OPA por rol y validación de rangos de fecha).
 * `AdminMenuLayoutEndpointsTests`: Valida la mutación protegida del lienzo (`PUT /api/v1/admin/menu/layout`), denegación por roles no autorizados y validación 400 ante geometrías inválidas.
 * `MenuPublishEndpointsTests`: Valida el endpoint `POST /api/v1/admin/menu/publish`, el encolamiento y retorno 202 Accepted, la creación de registros `MenuPublishJob` y la invalidación perimetral.
 * `PublicMenuCanvasEndpointsTests`: Valida la consulta de la carta pública con soporte dual (plantilla base y modo lienzo), evaluación condicional 304 ETag y preservación de resiliencia.
@@ -213,7 +228,7 @@ El backend cuenta con una batería de pruebas automatizadas organizadas en tres 
 * `FullLifecycleE2ETests`: Flujo completo E2E de aprovisionamiento de tenant, creación de platos, emisión de QR y consulta pública con ETag.
 
 ### 5.3. Pruebas de Seguridad (`RestoCore.SecurityTests`)
-* `CrossTenantDatabaseIsolationTests`: Valida que los filtros de consulta globales impidan de forma estricta cualquier fuga o lectura de datos entre diferentes tenants.
+* `CrossTenantDatabaseIsolationTests` & `AnalyticsTenantIsolationTests`: Validan que los filtros de consulta globales y las consultas de agregación analítica impidan de forma estricta cualquier fuga o contaminación cruzada de datos entre diferentes tenants.
 
 ---
 

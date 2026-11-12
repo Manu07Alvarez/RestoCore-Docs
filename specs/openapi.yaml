@@ -1,4 +1,4 @@
-openapi: 3.1.0
+﻿openapi: 3.1.0
 info:
   title: RestoCore REST API
   description: >
@@ -588,6 +588,53 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/admin/items:
+    get:
+      tags:
+        - Admin - Catalog
+      summary: Listar platos gastronómicos del restaurante
+      description: >
+        Retorna la lista de platos pertenecientes al tenant activo ordenados por `display_order`.
+        Permite filtrar opcionalmente por categoría (`categoryId`) e incluir platos archivados en baja suave (`includeDeleted`).
+      operationId: getAdminMenuItems
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: categoryId
+          in: query
+          required: false
+          description: Identificador único de la categoría para filtrar platos
+          schema:
+            type: string
+            format: uuid
+        - name: includeDeleted
+          in: query
+          required: false
+          description: Indica si se deben incluir platos en estado de baja suave (archivados)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Listado de platos obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MenuItemDto'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA (Requiere rol owner o tenant_admin)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
     post:
       tags:
         - Admin - Catalog
@@ -638,6 +685,49 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/admin/items/{id}:
+    get:
+      tags:
+        - Admin - Catalog
+      summary: Obtener detalle de un plato gastronómico por ID
+      description: >
+        Retorna los atributos detallados de un plato específico perteneciente al tenant activo.
+      operationId: getAdminMenuItemById
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del plato gastronómico
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del plato obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItemDto'
+        '401':
+          description: No autenticado (Falta token Bearer válido)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: No autorizado por política OPA
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Plato no encontrado en el tenant activo
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
     put:
       tags:
         - Admin - Catalog
@@ -903,10 +993,13 @@ paths:
         - Admin - Analytics
       summary: Obtener panel analítico e ingeniería de menú
       description: >
-        Retorna las métricas analíticas del restaurante según la jerarquía establecida (ADR-0011):
-        Métricas de Nivel 1 (Tráfico de acceso QR día/mes, visualizaciones de platos, matriz de ingeniería
-        de menú y categorías más populares) y, condicionalmente para Plan Pro, métricas de Nivel 2
-        (distribución horaria de horas pico, RevPASH estimado y rotación de mesas).
+        Retorna las métricas analíticas del restaurante según la jerarquía establecida (ADR-0011 y ADR-0012):
+        Métricas de Nivel 1 (Tráfico de acceso QR en el periodo y últimos 30 días, top 10 platos más vistos incluyendo
+        históricos en baja suave, top 10 categorías más interactuadas y Matriz de Ingeniería de Menú — Stars, Plowhorses,
+        Puzzles, Dogs — calculada sobre platos activos usando `EstimatedCost ?? BasePrice * 0.30`) y, condicionalmente
+        para tenants en Plan `Pro` o `Enterprise`, métricas de Nivel 2 (`priority_medium_metrics`: distribución horaria
+        de 24 horas pico y desglose porcentual de dispositivos móviles vs. escritorio). Omite métricas de rotación o
+        permanencia física por QR (ADR-0012).
       operationId: getAnalyticsDashboard
       security:
         - BearerAuth: []
@@ -914,19 +1007,19 @@ paths:
         - name: from
           in: query
           required: false
-          description: Fecha de inicio del intervalo de análisis (ISO-8601)
+          description: Fecha de inicio del intervalo de análisis (ISO-8601 yyyy-MM-dd, por defecto hoy - 30 días)
           schema:
             type: string
             format: date
-            example: '2026-09-01'
+            example: '2026-10-01'
         - name: to
           in: query
           required: false
-          description: Fecha de fin del intervalo de análisis (ISO-8601)
+          description: Fecha de fin del intervalo de análisis (ISO-8601 yyyy-MM-dd, por defecto hoy UTC)
           schema:
             type: string
             format: date
-            example: '2026-09-30'
+            example: '2026-10-31'
       responses:
         '200':
           description: Datos analíticos recuperados exitosamente
@@ -934,6 +1027,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnalyticsDashboardResponse'
+        '400':
+          description: Formato de fecha inválido o parámetro 'from' posterior a 'to'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '401':
           description: No autenticado (Falta token Bearer válido)
           content:

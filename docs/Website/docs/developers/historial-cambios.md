@@ -2,6 +2,17 @@
 
 Este documento refleja en orden cronológico la actividad del repositorio, los Pull Requests fusionados en la rama principal y los hitos de implementación del software.
 
+## Hito: Ingesta de Telemetría Analítica, Dashboard de Ingeniería de Menú y Consultas Administrativas de Platos (PR #12 y PR #13 en `resto-core-back`)
+* **Fecha:** 5 de Noviembre de 2026
+* **Commits:** `c9c1c64`, `5e1bfbb`, `15a2224` y `94b575a` en `resto-core-back`
+* **Resumen:** Sincronización de especificaciones e implementación de los endpoints de consulta administrativa de platos y del subsistema completo de Analítica e Ingeniería de Menú (`/backend-sync`):
+  * **Consultas Administrativas de Platos (`GET /api/v1/admin/items` y `GET /api/v1/admin/items/{id}` - PR #12):** Implementación de `GetMenuItemsQuery` (con filtrado opcional por `categoryId` e inclusión opcional de platos archivados en baja suave mediante `includeDeleted`) y `GetMenuItemByIdQuery` en `AdminCatalogEndpoints.cs` y `CatalogRepository.GetMenuItemsByTenantAsync`, respaldados por `MenuItemQueryHandlerTests`.
+  * **Ingesta Asíncrona No Bloqueante de Telemetría (`POST /api/v1/analytics/collect` - Feature 011 / PR #13):** Endpoint público (`AllowAnonymous`) que valida eventos `menu_view`, `item_view` y `category_click` (dispositivos `mobile`, `desktop`, `tablet`) a través de `CollectAnalyticsEventCommand`, encolándolos en memoria mediante `AnalyticsEventQueue` (`Channel.CreateBounded<AnalyticsEventMessage>(10_000)`) y retornando `202 Accepted` sin afectar el presupuesto `< 2s LCP`.
+  * **Agregación en Segundo Plano y Esquema Precalculado en PostgreSQL (`ADR-0011`):** Implementación de `AnalyticsAggregationWorker` (`BackgroundService`) e `IAnalyticsRepository` / `AnalyticsRepository` sobre cuatro tablas de resúmenes con índices únicos compuestos (`daily_menu_traffic_summaries`, `daily_item_view_summaries`, `daily_category_interaction_summaries` y `hourly_menu_traffic_summaries`).
+  * **Dashboard de Ingeniería de Menú y Segregación por Plan (`GET /api/v1/admin/analytics/dashboard`):** Endpoint protegido por la política OPA `AnalyticsReadOnly` (`OpaRequirement("read_metrics")`) que calcula `PriorityHighMetricsDto` (tráfico QR total y últimos 30 días, top 10 platos incluyendo históricos en baja suave, top 10 categorías y `MenuEngineeringMatrixDto` clasificando platos activos en `stars`, `plowhorses`, `puzzles` y `dogs` mediante `EstimatedCost ?? BasePrice * 0.30m`) y `PriorityMediumMetricsDto` (`peak_hours` de 24h y `device_breakdown`) exclusivamente para planes `Pro` y `Enterprise`, omitiendo heurísticas de ocupación de mesas por QR conforme a `ADR-0012`.
+
+---
+
 ## Hito: Diagnóstico Integral de Optimizaciones de Backend, ADRs 0014-0018 y 5 PRDs Propuestos para Expansión del Ecosistema
 * **Fecha:** 2 de Noviembre de 2026
 * **Resumen:** Auditoría arquitectónica y de rendimiento del backend (`OPT-01` a `OPT-10`), formalización de 4 Registros de Decisiones de Arquitectura y diseño de 5 Propuestas de Producto (PRDs) pendientes de evaluación del equipo:
