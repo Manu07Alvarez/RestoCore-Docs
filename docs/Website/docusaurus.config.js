@@ -1,4 +1,4 @@
-// @ts-check
+﻿// @ts-check
 import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
@@ -75,6 +75,12 @@ const config = {
           },
           {
             type: 'docSidebar',
+            sidebarId: 'comercialSidebar',
+            position: 'left',
+            label: 'Mercado & Licencias',
+          },
+          {
+            type: 'docSidebar',
             sidebarId: 'usuariosSidebar',
             position: 'left',
             label: 'Manuales de Usuario',
@@ -99,6 +105,10 @@ const config = {
               {
                 label: 'Arquitectura & API',
                 to: '/docs/developers/guia-onboarding',
+              },
+              {
+                label: 'Mercado & Licencias',
+                to: '/docs/comercial/modelo-comercial-y-distribucion',
               },
               {
                 label: 'Manuales de Usuario',
